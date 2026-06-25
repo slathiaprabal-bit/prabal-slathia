@@ -81,6 +81,17 @@ class Config:
     hv_windows: tuple = (20, 30, 60, 90)   # realized-vol look-backs (days)
     iv_rank_lookback: int = 252            # 1Y window for IV rank/percentile
 
+    # ---- Adaptive risk appetite (per-trade fraction of equity) ----------
+    # Survival-first by default; leans in only when conviction + premium are
+    # high. Clamped to [risk_floor, risk_ceiling]; risk_per_trade is the base.
+    adaptive_risk: bool = True
+    risk_floor: float = 0.015     # never risk less than this when trading
+    risk_ceiling: float = 0.04    # never risk more than this, even max-conviction
+
+    # ---- Universe -------------------------------------------------------
+    # NIFTY & SENSEX are the only weekly-expiry index options post-2024.
+    tradable_universe: tuple = ("NIFTY",)   # NIFTY-weekly-only focus
+
     # ---- Institutional risk limits (fractions of equity) ----------------
     weekly_loss_limit: float = 0.03
     monthly_loss_limit: float = 0.06

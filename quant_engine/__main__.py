@@ -29,6 +29,10 @@ def main(argv=None) -> int:
     p.add_argument("--save", type=str, default=None, help="dir to write csv outputs")
     p.add_argument("--report", action="store_true",
                    help="print the full Daily Decision Engine report")
+    p.add_argument("--simulate", action="store_true",
+                   help="Monte-Carlo probability-of-ruin simulation")
+    p.add_argument("--paths", type=int, default=5000)
+    p.add_argument("--horizon", type=int, default=50, help="trades per sim path")
     args = p.parse_args(argv)
 
     cfg = Config.from_env()
@@ -44,6 +48,14 @@ def main(argv=None) -> int:
     if args.report:
         from .report import build_decision, render
         print(render(build_decision(cfg), cfg))
+        return 0
+
+    if args.simulate:
+        from .simulate import run_simulation
+        try:
+            print(run_simulation(cfg, trades_per_path=args.horizon, paths=args.paths).render())
+        except ValueError as e:
+            print(f"Cannot simulate: {e}")
         return 0
 
     df, source, bt, sig, sizing = run_full(cfg)

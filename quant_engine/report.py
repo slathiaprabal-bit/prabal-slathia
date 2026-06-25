@@ -21,7 +21,7 @@ import pandas as pd
 from .config import Config
 from .data import add_features, get_market_data, generate_synthetic
 from .regimes import classify
-from .risk import RiskEngine
+from .risk import RiskEngine, adaptive_risk_fraction
 from .signal import generate_signal, Strategy
 from .volatility import compute_vol_state, surface_note
 from .positioning import get_positioning
@@ -37,8 +37,11 @@ def _index_scores(config: Config) -> pd.DataFrame:
     """
     liquidity_tier = {"NIFTY": 1.0, "BANKNIFTY": 0.9, "FINNIFTY": 0.7,
                       "MIDCPNIFTY": 0.5, "NIFTYNXT50": 0.3}
+    # Restrict to the configured tradable universe (NIFTY-weekly-only by default).
+    universe = [n for n in config.tradable_universe if n in config.instruments] \
+        or [config.primary]
     rows = []
-    for name in config.instruments:
+    for name in universe:
         cfg = Config()
         cfg.primary = name
         cfg.use_live = config.use_live
@@ -92,7 +95,11 @@ def build_decision(config: Config | None = None) -> DailyDecision:
                           float(row["MA"]), gap, config)
 
     risk = RiskEngine(config)
-    sizing = risk.size(sig, regime_mult=reg.policy.size_mult, vix_chg_pct=reg.vix_chg)
+    rfrac, rtag = adaptive_risk_fraction(config, reg.confidence, vs.iv_rank,
+                                         reg.policy.size_mult, risk.drawdown)
+    sizing = risk.size(sig, regime_mult=reg.policy.size_mult,
+                       vix_chg_pct=reg.vix_chg, risk_fraction=rfrac)
+    sizing.reason = rtag if sizing.lots > 0 else sizing.reason
 
     trade = bool(reg.policy.trade and sig.is_tradable and sizing.lots > 0)
     # Blend regime confidence with probability-of-profit proxy.

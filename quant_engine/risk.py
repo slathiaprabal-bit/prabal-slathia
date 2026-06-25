@@ -37,6 +37,37 @@ def kelly_fraction(win_rate: float, avg_win: float, avg_loss: float) -> float:
     return max(0.0, f)
 
 
+def adaptive_risk_fraction(config: Config, confidence: float, iv_rank: float,
+                           size_mult: float, drawdown: float) -> tuple[float, str]:
+    """Blend survival-first and opportunistic sizing into one risk fraction.
+
+    Returns (fraction, rationale). Logic:
+      * start at the conservative base (risk_per_trade)
+      * lean IN when conviction (regime confidence) AND premium (IV rank) are
+        both high — that is where a premium-seller's edge is real
+      * lean OUT in drawdown and when the regime policy says size down
+      * always clamp to [risk_floor, risk_ceiling]
+    """
+    if not config.adaptive_risk:
+        return config.risk_per_trade, "fixed risk"
+
+    base = config.risk_per_trade
+    conv = max(0.0, min(1.0, confidence / 100.0))
+    ivr = max(0.0, min(1.0, (iv_rank if iv_rank == iv_rank else 50.0) / 100.0))
+
+    # Opportunity score in [0,1]: needs BOTH conviction and rich premium.
+    opportunity = (0.6 * conv + 0.4 * ivr) * (0.5 + 0.5 * ivr)
+    # Scale between floor and ceiling, then apply regime + drawdown brakes.
+    frac = config.risk_floor + (config.risk_ceiling - config.risk_floor) * opportunity
+    frac *= size_mult                       # regime policy multiplier
+    frac *= max(0.0, 1.0 - 2.0 * drawdown)  # cut hard as equity bleeds
+    frac = max(config.risk_floor * 0.5, min(config.risk_ceiling, frac))
+
+    tag = "LEAN-IN" if frac > base else "SURVIVAL"
+    return frac, (f"{tag}: risk {frac:.1%} (conv {confidence:.0f}, "
+                  f"IVr {ivr*100:.0f}, regime×{size_mult:.2f})")
+
+
 class RiskEngine:
     def __init__(self, config: Config):
         self.config = config
@@ -95,7 +126,8 @@ class RiskEngine:
 
     # -- sizing -----------------------------------------------------------
     def size(self, signal: Signal, regime_mult: float = 1.0,
-             vix_chg_pct: float | None = None) -> SizingResult:
+             vix_chg_pct: float | None = None,
+             risk_fraction: float | None = None) -> SizingResult:
         cfg = self.config
         lot = cfg.primary_instrument.lot_size
 
@@ -111,7 +143,11 @@ class RiskEngine:
             return SizingResult(0, 0.0, 0.0,
                                 f"drawdown {self.drawdown:.0%} or regime blocks trade")
 
-        risk_budget = self.equity * cfg.risk_per_trade * mult
+        # Adaptive fraction already folds in regime_mult; otherwise apply it here.
+        if risk_fraction is not None:
+            risk_budget = self.equity * risk_fraction
+        else:
+            risk_budget = self.equity * cfg.risk_per_trade * mult
         risk_per_lot = signal.max_risk * lot
         if risk_per_lot <= 0:
             return SizingResult(0, 0.0, mult, "non-positive risk per lot")
@@ -144,11 +180,15 @@ class RiskEngine:
             return SizingResult(0, 0.0, mult,
                                 "budget/margin < one lot at this risk")
 
+        if risk_fraction is not None:
+            reason = f"adaptive risk {risk_fraction:.2%} of ₹{self.equity:,.0f}"
+        else:
+            reason = f"risk {cfg.risk_per_trade:.1%}*{mult:.2f} of ₹{self.equity:,.0f}"
         return SizingResult(
             lots=lots,
             capital_at_risk=round(lots * risk_per_lot, 2),
             multiplier=round(mult, 2),
-            reason=f"risk {cfg.risk_per_trade:.1%}*{mult:.2f} of ₹{self.equity:,.0f}",
+            reason=reason,
             margin_used=round(lots * margin_lot, 2),
             kelly_lots=kelly_lots,
         )
