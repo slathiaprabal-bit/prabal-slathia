@@ -19,6 +19,22 @@ class SizingResult:
     capital_at_risk: float
     multiplier: float
     reason: str
+    margin_used: float = 0.0
+    kelly_lots: int = 0
+
+
+def kelly_fraction(win_rate: float, avg_win: float, avg_loss: float) -> float:
+    """Fraction of capital Kelly would bet, given edge stats.
+
+    f* = W/L_ratio formulation: f = p - (1-p)/b, where b = avg_win/|avg_loss|.
+    Returns 0 if no positive edge. Always to be scaled DOWN (fractional Kelly).
+    """
+    if avg_loss == 0 or avg_win <= 0:
+        return 0.0
+    b = avg_win / abs(avg_loss)
+    p = win_rate
+    f = p - (1 - p) / b
+    return max(0.0, f)
 
 
 class RiskEngine:
@@ -27,15 +43,41 @@ class RiskEngine:
         self.equity = config.capital
         self.peak_equity = config.capital
         self.day_pnl = 0.0
+        self.week_pnl = 0.0
+        self.month_pnl = 0.0
+        # Optional edge stats (win_rate, avg_win, avg_loss) for Kelly sizing.
+        self.edge_stats: tuple | None = None
 
     # -- equity / drawdown bookkeeping ------------------------------------
     def update_equity(self, pnl: float) -> None:
         self.equity += pnl
         self.day_pnl += pnl
+        self.week_pnl += pnl
+        self.month_pnl += pnl
         self.peak_equity = max(self.peak_equity, self.equity)
 
     def reset_day(self) -> None:
         self.day_pnl = 0.0
+
+    def reset_week(self) -> None:
+        self.week_pnl = 0.0
+
+    def reset_month(self) -> None:
+        self.month_pnl = 0.0
+
+    # -- no-trade conditions ---------------------------------------------
+    def blocking_reason(self, vix_chg_pct: float | None = None) -> str | None:
+        """Hard circuit-breakers checked before any sizing."""
+        cfg = self.config
+        if self.day_pnl <= -cfg.daily_loss_limit * self.equity:
+            return f"daily loss limit ({cfg.daily_loss_limit:.0%}) hit"
+        if self.week_pnl <= -cfg.weekly_loss_limit * self.equity:
+            return f"weekly loss limit ({cfg.weekly_loss_limit:.0%}) hit"
+        if self.month_pnl <= -cfg.monthly_loss_limit * self.equity:
+            return f"monthly loss limit ({cfg.monthly_loss_limit:.0%}) hit"
+        if vix_chg_pct is not None and vix_chg_pct >= cfg.vol_spike_block * 100:
+            return f"vol spike (VIX +{vix_chg_pct:.0f}%): short-gamma blackout"
+        return None
 
     @property
     def drawdown(self) -> float:
@@ -52,20 +94,22 @@ class RiskEngine:
         return mult
 
     # -- sizing -----------------------------------------------------------
-    def size(self, signal: Signal) -> SizingResult:
+    def size(self, signal: Signal, regime_mult: float = 1.0,
+             vix_chg_pct: float | None = None) -> SizingResult:
         cfg = self.config
         lot = cfg.primary_instrument.lot_size
 
         if not signal.is_tradable:
             return SizingResult(0, 0.0, 0.0, "signal not tradable")
 
-        # Daily loss circuit-breaker.
-        if self.day_pnl <= -cfg.daily_loss_limit * self.equity:
-            return SizingResult(0, 0.0, 0.0, "daily loss limit hit")
+        blocked = self.blocking_reason(vix_chg_pct)
+        if blocked:
+            return SizingResult(0, 0.0, 0.0, blocked)
 
-        mult = self._throttle()
+        mult = self._throttle() * regime_mult
         if mult <= 0:
-            return SizingResult(0, 0.0, 0.0, f"drawdown {self.drawdown:.0%} > limit")
+            return SizingResult(0, 0.0, 0.0,
+                                f"drawdown {self.drawdown:.0%} or regime blocks trade")
 
         risk_budget = self.equity * cfg.risk_per_trade * mult
         risk_per_lot = signal.max_risk * lot
@@ -73,20 +117,38 @@ class RiskEngine:
             return SizingResult(0, 0.0, mult, "non-positive risk per lot")
 
         lots = int(risk_budget // risk_per_lot)
+
+        # Kelly overlay: cap lots at fractional-Kelly when edge stats exist.
+        kelly_lots = lots
+        if self.edge_stats:
+            wr, aw, al = self.edge_stats
+            f = kelly_fraction(wr, aw, al) * cfg.kelly_fraction_cap
+            kelly_budget = self.equity * f
+            kelly_lots = int(kelly_budget // risk_per_lot)
+            lots = min(lots, kelly_lots) if kelly_lots > 0 else lots
+
         lots = max(0, min(lots, cfg.max_lots))
 
-        # Enforce the hard cap on capital-at-risk.
+        # Hard cap on capital-at-risk.
         cap = self.equity * cfg.max_risk_per_trade
         while lots > 0 and lots * risk_per_lot > cap:
             lots -= 1
 
+        # Margin ceiling.
+        margin_lot = cfg.margin_per_lot.get(cfg.primary, 25000.0)
+        margin_cap = self.equity * cfg.max_margin_utilisation
+        while lots > 0 and lots * margin_lot > margin_cap:
+            lots -= 1
+
         if lots == 0:
-            return SizingResult(0, 0.0, mult, "risk budget < one lot")
+            return SizingResult(0, 0.0, mult,
+                                "budget/margin < one lot at this risk")
 
         return SizingResult(
             lots=lots,
             capital_at_risk=round(lots * risk_per_lot, 2),
-            multiplier=mult,
-            reason=f"risk {cfg.risk_per_trade:.1%}*{mult:.2f} of "
-                   f"₹{self.equity:,.0f}",
+            multiplier=round(mult, 2),
+            reason=f"risk {cfg.risk_per_trade:.1%}*{mult:.2f} of ₹{self.equity:,.0f}",
+            margin_used=round(lots * margin_lot, 2),
+            kelly_lots=kelly_lots,
         )

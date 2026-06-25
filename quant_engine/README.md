@@ -27,7 +27,42 @@ live/synth      regime+strategy      position sizing       backtest/live        
 | `signal.py`   | Regime detection + option-structure construction |
 | `risk.py`     | Risk-based sizing, drawdown throttle, daily loss limit |
 | `engine.py`   | Daily backtest + live recommendation + performance report |
+| `volatility.py`| HV term structure (20/30/60/90), IV rank/percentile, expected move, σ-ranges, P(in-range) |
+| `regimes.py`  | 12-state market-regime engine + per-regime trading policy |
+| `positioning.py`| Max Pain / PCR / GEX / S-R — **needs live NSE OI** (synthetic fallback) |
+| `analytics.py`| Sharpe, Sortino, profit factor, expectancy, Calmar, max DD, recovery, monthly returns |
+| `report.py`   | Daily Decision Engine — integrates every module into one report |
 | `dashboard.py`| Streamlit live dashboard |
+
+### Daily Decision Engine
+
+```bash
+python -m quant_engine --report                 # full institutional daily report
+python -m quant_engine --report --capital 100000
+```
+Outputs: macro checklist, volatility state, 12-state regime + policy, options
+positioning, index-rotation ranking, and a single TRADE / NO-TRADE decision
+with confidence, strategy, size and risk.
+
+### ⚠️ Reality check for small capital (read this)
+
+This system is built **capital-preservation first**. At **₹100,000** the risk
+engine will often print **`NO TRADE — budget/margin < one lot`**, and that is
+*correct*: one defined-risk NIFTY spread risks ~₹13,000 worst-case (178 pts ×
+₹75), which exceeds any prudent 2–4 % per-trade budget. The account is
+indivisible below one lot.
+
+A target of **2 %/month at ≤1 % max drawdown is not achievable** selling
+options on ₹1L — it implies a Calmar ≈ 27 (industry-best is ~1–3) and is
+violated by one normal day's noise (₹1,000 ≈ 13 NIFTY points). With a *viable*
+tight-wing config the backtest produces roughly **0.3 %/month, ~4 % max
+drawdown, 91-day recovery** — and a 6:1 loss/win size ratio (negative skew).
+Plan around survival and scaling capital, not the original target.
+
+Metrics requiring a **live NSE option chain** (Max Pain, PCR, OI build-up, GEX,
+dealer positioning, IV skew/smile/surface) run on **synthetic OI** here and are
+flagged as illustrative. Implement `positioning.load_live_chain()` /
+`data.py` adapters with `nsepython` or a paid vendor to make them tradable.
 
 ---
 

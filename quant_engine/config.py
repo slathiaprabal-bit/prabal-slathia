@@ -77,6 +77,21 @@ class Config:
     slippage_per_leg: float = 0.5  # INR per option leg, per side
     cost_per_leg: float = 20.0     # brokerage+taxes per leg round-trip (INR)
 
+    # ---- Volatility engine ---------------------------------------------
+    hv_windows: tuple = (20, 30, 60, 90)   # realized-vol look-backs (days)
+    iv_rank_lookback: int = 252            # 1Y window for IV rank/percentile
+
+    # ---- Institutional risk limits (fractions of equity) ----------------
+    weekly_loss_limit: float = 0.03
+    monthly_loss_limit: float = 0.06
+    kelly_fraction_cap: float = 0.25       # never bet more than 1/4 Kelly
+    margin_per_lot: dict = field(default_factory=lambda: {
+        # rough SPAN+exposure for a *defined-risk* spread, INR per lot
+        "NIFTY": 22000.0, "BANKNIFTY": 28000.0,
+    })
+    max_margin_utilisation: float = 0.60   # cap deployed margin at 60% of equity
+    vol_spike_block: float = 0.20          # block new trades if VIX jumps >20% d/d
+
     # ---- Data -----------------------------------------------------------
     data_dir: Path = DATA_DIR
     use_live: bool = True        # try live download first

@@ -27,6 +27,8 @@ def main(argv=None) -> int:
     p.add_argument("--risk", type=float, default=None)
     p.add_argument("--primary", choices=["NIFTY", "BANKNIFTY"], default=None)
     p.add_argument("--save", type=str, default=None, help="dir to write csv outputs")
+    p.add_argument("--report", action="store_true",
+                   help="print the full Daily Decision Engine report")
     args = p.parse_args(argv)
 
     cfg = Config.from_env()
@@ -38,6 +40,11 @@ def main(argv=None) -> int:
         cfg.risk_per_trade = args.risk
     if args.primary:
         cfg.primary = args.primary
+
+    if args.report:
+        from .report import build_decision, render
+        print(render(build_decision(cfg), cfg))
+        return 0
 
     df, source, bt, sig, sizing = run_full(cfg)
 
