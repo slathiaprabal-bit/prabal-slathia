@@ -1,0 +1,9 @@
+# Core (required)
+pandas>=2.0
+numpy>=1.24
+
+# Live market data (optional but recommended; engine falls back to synthetic)
+yfinance>=0.2.40
+
+# Dashboard (optional)
+streamlit>=1.30
