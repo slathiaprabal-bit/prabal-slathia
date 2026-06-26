@@ -33,6 +33,12 @@ def main(argv=None) -> int:
                    help="Monte-Carlo probability-of-ruin simulation")
     p.add_argument("--paths", type=int, default=5000)
     p.add_argument("--horizon", type=int, default=50, help="trades per sim path")
+    p.add_argument("--dashboard", action="store_true",
+                   help="serve the live vol-surface + regime dashboard")
+    p.add_argument("--dashboard-html", metavar="PATH",
+                   help="write the dashboard to a static HTML file and exit")
+    p.add_argument("--port", type=int, default=8080)
+    p.add_argument("--refresh", type=int, default=20, help="dashboard auto-refresh secs")
     args = p.parse_args(argv)
 
     cfg = Config.from_env()
@@ -56,6 +62,18 @@ def main(argv=None) -> int:
             print(run_simulation(cfg, trades_per_path=args.horizon, paths=args.paths).render())
         except ValueError as e:
             print(f"Cannot simulate: {e}")
+        return 0
+
+    if args.dashboard_html:
+        from .surface_dashboard import render_html
+        with open(args.dashboard_html, "w", encoding="utf-8") as fh:
+            fh.write(render_html(cfg, refresh=args.refresh))
+        print(f"Wrote dashboard to {args.dashboard_html}")
+        return 0
+
+    if args.dashboard:
+        from .surface_dashboard import serve
+        serve(cfg, port=args.port, refresh=args.refresh)
         return 0
 
     df, source, bt, sig, sizing = run_full(cfg)
