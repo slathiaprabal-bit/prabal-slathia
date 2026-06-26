@@ -84,7 +84,31 @@ def verdict(reg, vs) -> dict:
     return {"label": label, "color": color, "sub": sub}
 
 
-def _figure_json(strikes, dtes, grid) -> str:
+def trade_style(reg, vs) -> dict:
+    """Should today be a DIRECTIONAL or NON-DIRECTIONAL trade (or stand aside)?
+
+    Driven by the regime policy's strategy family and trend strength:
+      * neutral family (condor/strangle/fly)  -> NON-DIRECTIONAL premium sell
+      * bullish/bearish family (credit spread) -> DIRECTIONAL with that bias
+      * no-trade regime                        -> STAND ASIDE
+    """
+    fam = reg.policy.strategy_family
+    pref = " · ".join(s.replace("_", " ").title()
+                      for s in reg.policy.preferred[:2]) or "—"
+    if not reg.policy.trade:
+        return {"style": "STAND ASIDE", "color": "#ff2d6e",
+                "detail": "No edge — protect capital", "pref": "—"}
+    if fam == "neutral":
+        return {"style": "NON-DIRECTIONAL", "color": "#16f5b0",
+                "detail": f"Range / rich IV (IVR {vs.iv_rank:.0f}) — sell premium",
+                "pref": pref}
+    bias = "BULLISH" if fam == "bullish" else "BEARISH"
+    return {"style": "DIRECTIONAL", "color": "#3fd6f5",
+            "detail": f"{bias} bias · trend {reg.trend_strength:+.1f} ATR",
+            "pref": pref}
+
+
+def _figure_json(strikes, dtes, grid, max_pain: float | None = None) -> str:
     data = [{
         "type": "surface",
         "x": strikes.round(0).tolist(),
@@ -103,6 +127,20 @@ def _figure_json(strikes, dtes, grid) -> str:
                      "roughness": 0.5, "fresnel": 0.2},
         "hoverinfo": "x+y+z",
     }]
+    # Glowing amber wall at the max-pain strike (the OI "pin" for the day).
+    if max_pain is not None and strikes.min() <= max_pain <= strikes.max():
+        zlo, zhi = float(grid.min()), float(grid.max()) * 1.05
+        ylo, yhi = float(dtes.min()), float(dtes.max())
+        data.append({
+            "type": "scatter3d", "mode": "lines+text",
+            "x": [max_pain, max_pain, max_pain],
+            "y": [ylo, yhi, yhi], "z": [zhi, zhi, zlo],
+            "line": {"color": "#ffd166", "width": 7},
+            "text": ["", f"MAX PAIN {max_pain:,.0f}", ""],
+            "textposition": "top center",
+            "textfont": {"color": "#ffd166", "size": 12},
+            "hoverinfo": "text", "name": "Max Pain",
+        })
     axis = {"gridcolor": "#16324a", "zerolinecolor": "#16324a",
             "color": "#5fb8d8", "backgroundcolor": "rgba(0,0,0,0)",
             "showbackground": True}
@@ -123,22 +161,39 @@ def _figure_json(strikes, dtes, grid) -> str:
 
 def render_html(config: Config, refresh: int = 20) -> str:
     d = build_decision(config)
-    vs, reg = d.vol_state, d.regime
+    vs, reg, pos = d.vol_state, d.regime, d.positioning
     strikes, dtes, grid = build_surface(vs, config)
-    fig = _figure_json(strikes, dtes, grid)
+    fig = _figure_json(strikes, dtes, grid, max_pain=pos.max_pain)
     v = verdict(reg, vs)
+    ts = trade_style(reg, vs)
     now = datetime.now().strftime("%I:%M %p")
     live = "LIVE" if d.source.lower().startswith("live") else "SYNTHETIC"
     vrp = vs.iv_minus_hv
+    mp_dist = pos.max_pain - vs.spot
     metrics = [
         ("VIX", f"{vs.vix:.1f}"), ("IV RANK", f"{vs.iv_rank:.0f}"),
         ("VRP (IV-HV)", f"{vrp:+.1f}"), ("EXP. MOVE", f"±{vs.em_expiry:.0f}"),
-        ("REGIME", reg.regime.value.replace("_", " ")),
-        ("CONFIDENCE", f"{d.confidence:.0f}%"),
+        ("MAX PAIN", f"{pos.max_pain:,.0f}"), ("REGIME", reg.regime.value.replace("_", " ")),
     ]
     chips = "".join(
         f'<div class="chip"><span class="k">{k}</span>'
         f'<span class="val">{val}</span></div>' for k, val in metrics)
+    oi_tag = "SYNTHETIC OI" if pos.synthetic else "LIVE OI"
+    playbook = f"""
+    <div class="pb-row"><span class="pb-k">TRADE STYLE</span>
+         <span class="pb-v" style="color:{ts['color']}">{ts['style']}</span></div>
+    <div class="pb-detail">{ts['detail']}</div>
+    <div class="pb-row"><span class="pb-k">STRUCTURE</span>
+         <span class="pb-v sm">{ts['pref']}</span></div>
+    <div class="pb-sep"></div>
+    <div class="pb-row"><span class="pb-k">MAX PAIN</span>
+         <span class="pb-v" style="color:#ffd166">{pos.max_pain:,.0f}</span></div>
+    <div class="pb-detail">{mp_dist:+,.0f} pts from spot {vs.spot:,.0f} · pin into expiry</div>
+    <div class="pb-row"><span class="pb-k">PCR (OI)</span>
+         <span class="pb-v sm">{pos.pcr_oi}</span>
+         <span class="pb-k" style="margin-left:auto">{oi_tag}</span></div>
+    <div class="pb-detail">S {('/'.join(f'{x:,.0f}' for x in pos.support)) or '—'}
+         &nbsp;·&nbsp; R {('/'.join(f'{x:,.0f}' for x in pos.resistance)) or '—'}</div>"""
 
     return f"""<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="refresh" content="{refresh}">
@@ -174,6 +229,18 @@ def render_html(config: Config, refresh: int = 20) -> str:
   .card .lbl {{ font-size:54px; font-weight:800; letter-spacing:.08em;
         color:{v['color']}; text-shadow:0 0 26px {v['color']}; margin:6px 0; }}
   .card .sub2 {{ font-size:12px; letter-spacing:.06em; color:#bcd; }}
+  .playbook {{ position:absolute; top:128px; right:30px; width:260px;
+        background:rgba(8,16,30,.7); border:1px solid #163049; border-radius:14px;
+        padding:16px 18px; z-index:6; backdrop-filter:blur(5px);
+        box-shadow:0 0 30px rgba(20,120,180,.15); }}
+  .playbook .ttl {{ font-size:10px; letter-spacing:.34em; color:#6fa9c2;
+        margin-bottom:12px; }}
+  .pb-row {{ display:flex; align-items:baseline; gap:8px; margin:7px 0; }}
+  .pb-k {{ font-size:9px; letter-spacing:.18em; color:#5c93ad; }}
+  .pb-v {{ font-size:18px; font-weight:700; color:#aef0ff; margin-left:auto; }}
+  .pb-v.sm {{ font-size:11px; font-weight:500; text-align:right; }}
+  .pb-detail {{ font-size:10px; color:#7fb3c8; margin:-2px 0 8px; line-height:1.4; }}
+  .pb-sep {{ height:1px; background:#163049; margin:10px 0; }}
   .src {{ position:absolute; bottom:16px; left:30px; font-size:10px;
         letter-spacing:.2em; color:#3a6377; z-index:5; }}
 </style></head>
@@ -183,6 +250,7 @@ def render_html(config: Config, refresh: int = 20) -> str:
        <span>{now}</span></div>
   <div class="sub">NIFTY VOL SURFACE · {now}</div>
   <div class="metrics">{chips}</div>
+  <div class="playbook"><div class="ttl">TODAY'S PLAYBOOK</div>{playbook}</div>
   <div id="chart"></div>
   <div class="card">
     <div class="hd">MARKET REGIME</div>
