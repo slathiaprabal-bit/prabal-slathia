@@ -60,9 +60,11 @@ drawdown, 91-day recovery** — and a 6:1 loss/win size ratio (negative skew).
 Plan around survival and scaling capital, not the original target.
 
 Metrics requiring a **live NSE option chain** (Max Pain, PCR, OI build-up, GEX,
-dealer positioning, IV skew/smile/surface) run on **synthetic OI** here and are
-flagged as illustrative. Implement `positioning.load_live_chain()` /
-`data.py` adapters with `nsepython` or a paid vendor to make them tradable.
+dealer positioning, IV skew/smile/surface) are now fed by `nse_chain.py`, which
+pulls the official NSE index option-chain (gated on `config.use_live_chain`).
+When the feed is unreachable (offline / blocked / throttled) they fall back to
+**synthetic OI**, flagged as illustrative. Swap in a paid vendor by
+reimplementing `nse_chain.nearest_expiry_frame()`.
 
 ---
 

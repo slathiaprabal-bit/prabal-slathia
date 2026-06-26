@@ -106,6 +106,7 @@ class Config:
     # ---- Data -----------------------------------------------------------
     data_dir: Path = DATA_DIR
     use_live: bool = True        # try live download first
+    use_live_chain: bool = True  # pull live NSE option chain for OI/IV (needs net)
     history_days: int = 600      # synthetic/look-back horizon
     seed: int = 7                # synthetic reproducibility
 

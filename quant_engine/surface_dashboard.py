@@ -35,15 +35,51 @@ _COLORSCALE = [
 ]
 
 
+def _surface_from_live(points, vs, n_strike: int):
+    """Grid a real [Strike, DTE, IV] point cloud into (strikes, dtes, iv_grid).
+
+    Each listed expiry is its own IV smile; we interpolate that smile across a
+    common strike axis. No scipy dependency — per-expiry np.interp.
+    """
+    spot = vs.spot
+    lo = max(points["Strike"].min(), spot * 0.85)
+    hi = min(points["Strike"].max(), spot * 1.15)
+    strikes = np.linspace(lo, hi, n_strike)
+    expiries = sorted(d for d in points["DTE"].unique() if d >= 0)[:8]
+    if not expiries:
+        return None
+    grid = np.empty((len(expiries), n_strike))
+    for j, dte in enumerate(expiries):
+        sm = points[points["DTE"] == dte].sort_values("Strike")
+        if len(sm) < 3:
+            grid[j, :] = np.interp(strikes, points["Strike"], points["IV"])
+        else:
+            grid[j, :] = np.interp(strikes, sm["Strike"], sm["IV"])
+    return strikes, np.array(expiries, dtype=float), grid
+
+
 def build_surface(vs, config: Config, n_strike: int = 41, n_dte: int = 28):
-    """Parametric IV surface anchored to live ATM IV (VIX) and IV-rank.
+    """IV surface: real NSE per-strike IV when available, else parametric.
 
     Returns (strikes, dtes, iv_grid) where iv_grid[j, i] is IV% at
-    strike[i], dte[j]. Models the two stylised facts of index vol:
+    strike[i], dte[j]. The parametric fallback models the two stylised facts of
+    index vol:
       * negative skew/smile across strikes (OTM puts bid, calls cheaper)
       * term structure that backwardates in high-IV-rank (stress) regimes
         and contangos in calm low-IV-rank regimes.
     """
+    # Prefer the live chain's real implied-vol skew/term when reachable.
+    if getattr(config, "use_live", True) and getattr(config, "use_live_chain", True):
+        try:
+            from .nse_chain import iv_surface_points
+            pts = iv_surface_points(config.primary)
+            if pts is not None and len(pts):
+                live = _surface_from_live(pts, vs, n_strike)
+                if live is not None:
+                    return live
+        except Exception:
+            pass
+
     spot = vs.spot
     atm = vs.vix if vs.vix == vs.vix else 14.0          # ATM IV anchor (%)
     ivr = (vs.iv_rank if vs.iv_rank == vs.iv_rank else 50.0) / 100.0
@@ -258,7 +294,7 @@ def render_html(config: Config, refresh: int = 20) -> str:
     <div class="sub2">{v['sub']}</div>
   </div>
   <div class="src">{live} DATA · {d.source} · auto-refresh {refresh}s ·
-       surface = parametric skew/term model (anchor VIX {vs.vix:.1f}, IVR {vs.iv_rank:.0f})</div>
+       surface = {'LIVE NSE chain IV' if not pos.synthetic else f'parametric skew/term (VIX {vs.vix:.1f}, IVR {vs.iv_rank:.0f})'}</div>
   <script>
     var fig = {fig};
     Plotly.newPlot('chart', fig.data, fig.layout,

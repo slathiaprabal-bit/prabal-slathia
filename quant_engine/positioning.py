@@ -2,19 +2,22 @@
 
 ================================  CAVEAT  ================================
 These metrics REQUIRE a live NSE option chain with per-strike Open Interest.
-yfinance / Yahoo does not provide Indian OI. Until a real chain feed is wired
-into `data.py`, this module builds a *synthetic* OI profile (a plausible
-double-humped distribution around spot) so the math and dashboard run. Treat
-the numbers here as ILLUSTRATIVE, not tradable, when `synthetic=True`.
+yfinance / Yahoo does not provide Indian OI. `nse_chain.py` now fetches the
+real NSE index option-chain (gated on config.use_live_chain); when it is
+unreachable (offline, blocked egress, throttling) this module falls back to a
+*synthetic* OI profile (a plausible double-humped distribution around spot) so
+the math and dashboard always run. Treat the numbers as ILLUSTRATIVE, not
+tradable, when `synthetic=True`.
 
 Max Pain in particular is a weak predictor: it is descriptive of current
 positioning, not causal, and pinning only tends to assert itself very close to
 expiry. Never size a trade on Max Pain alone.
 =========================================================================
 
-To go live: implement `load_live_chain(symbol)` returning a DataFrame with
-columns [Strike, CE_OI, PE_OI, CE_IV, PE_IV] from nsepython / NSE API / vendor,
-and pass it to `analyze_chain()`.
+Live path: `nse_chain.nearest_expiry_frame(symbol)` returns the front-expiry
+chain [Strike, CE_OI, PE_OI, CE_IV, PE_IV, _t] from the NSE API, which
+`analyze_chain()` consumes directly. Swap in a paid vendor by reimplementing
+that one function.
 """
 
 from __future__ import annotations
@@ -137,18 +140,25 @@ def get_positioning(df: pd.DataFrame, config: Config) -> Positioning:
     """Entry point. Tries a live chain loader; falls back to synthetic OI."""
     row = df.iloc[-1]
     spot, vix = float(row["Close"]), float(row["VIX"])
-    chain = load_live_chain(config.primary)
+    chain = load_live_chain(config)
     synthetic = chain is None
     if synthetic:
         chain = build_synthetic_chain(spot, vix, config)
     return analyze_chain(chain, spot, config, synthetic)
 
 
-def load_live_chain(symbol: str):
-    """Stub for a real NSE option-chain feed.
+def load_live_chain(config: Config):
+    """Real NSE option-chain feed (front expiry).
 
-    Implement with nsepython, the NSE API, or a paid vendor and return a
-    DataFrame [Strike, CE_OI, PE_OI, CE_IV, PE_IV, _t]. Returning None triggers
-    the synthetic fallback.
+    Returns a DataFrame [Strike, CE_OI, PE_OI, CE_IV, PE_IV, _t] from the live
+    NSE chain, or None (which triggers the synthetic fallback). Gated on
+    config.use_live and config.use_live_chain so offline/synthetic runs never
+    touch the network.
     """
-    return None
+    if not (getattr(config, "use_live", True) and getattr(config, "use_live_chain", True)):
+        return None
+    try:
+        from .nse_chain import nearest_expiry_frame
+        return nearest_expiry_frame(config.primary)
+    except Exception:
+        return None
