@@ -19,6 +19,7 @@ from quant_engine.positioning import build_synthetic_chain
 from quant_engine.regimes import MarketRegime
 
 from .greeks import position_greeks
+from .instrument import Probe
 
 
 # 12 engine regimes -> 6 UI states the spec asks for.
@@ -65,14 +66,16 @@ def _chain_rows(cfg: Config, spot: float, vix: float):
     return rows, synthetic
 
 
-def montecarlo(cfg: Config) -> dict:
+def montecarlo(cfg: Config, probe: Probe | None = None) -> dict:
     """Bootstrap the backtest's per-trade PnL into ruin / drawdown views.
 
     Mirrors simulate.py's resampling for *visualisation only* (histogram,
     percentile cone) — the canonical numbers still come from the engine.
     """
+    probe = probe or Probe()
     from quant_engine.engine import Backtest
     from quant_engine.data import get_market_data
+    probe.mark("mc.backtest", capital=cfg.capital, seed=cfg.seed)
     try:
         df, _ = get_market_data(cfg)
         tl = Backtest(cfg).run(df).trade_log()
@@ -80,6 +83,9 @@ def montecarlo(cfg: Config) -> dict:
     except Exception:
         pnls = np.array([0.0])
 
+    probe.mark("mc.bootstrap", n_pnls=len(pnls),
+               pnl_min=float(np.min(pnls)), pnl_max=float(np.max(pnls)),
+               pnl_mean=float(np.mean(pnls)))
     rng = np.random.default_rng(cfg.seed)
     n, paths, start = 50, 4000, cfg.capital
     finals = np.empty(paths)
@@ -121,15 +127,31 @@ def montecarlo(cfg: Config) -> dict:
     }
 
 
-def build_snapshot(cfg: Config, mc: dict | None = None) -> dict:
+def build_snapshot(cfg: Config, mc: dict | None = None,
+                   probe: Probe | None = None) -> dict:
     """The full live snapshot consumed by the terminal."""
+    probe = probe or Probe()
+
+    probe.mark("build_decision", primary=cfg.primary, use_live=cfg.use_live,
+               use_live_chain=cfg.use_live_chain)
     d = build_decision(cfg)
     vs, reg, pos, sig, sz = (d.vol_state, d.regime, d.positioning,
                              d.signal, d.sizing)
     lot = cfg.primary_instrument.lot_size
     spot = vs.spot
 
+    # Log every engine value that feeds a downstream IV/VRP/Greeks/MC calc.
+    probe.mark("engine.outputs", source=d.source, spot=spot, vix=vs.vix,
+               iv_rank=vs.iv_rank, iv_pctile=vs.iv_pctile,
+               hv20=vs.hv.get(20, float("nan")), vrp=vs.iv_minus_hv,
+               em_expiry=vs.em_expiry, p_inside1=vs.p_inside_1sigma,
+               regime=reg.regime.value, credit=sig.credit,
+               max_risk=sig.max_risk, n_legs=len(sig.legs),
+               lots=sz.lots, dte=cfg.dte)
+
     # --- 3D IV surface (real chain IV if live, else parametric) ----------
+    probe.mark("build_surface", spot=spot, vix=vs.vix, iv_rank=vs.iv_rank,
+               synthetic=pos.synthetic)
     strikes, dtes, grid = build_surface(vs, cfg)
     surface = {
         "strikes": strikes.round(0).tolist(),
@@ -138,6 +160,8 @@ def build_snapshot(cfg: Config, mc: dict | None = None) -> dict:
         "live": not pos.synthetic,
     }
     # Front-expiry smile + ATM term structure derived from the surface.
+    probe.mark("surface.smile_term", grid_shape=list(grid.shape),
+               iv_min=float(grid.min()), iv_max=float(grid.max()))
     atm_i = int(np.argmin(np.abs(strikes - spot)))
     smile = {"strikes": strikes.round(0).tolist(),
              "iv": grid[0].round(2).tolist()}
@@ -145,10 +169,14 @@ def build_snapshot(cfg: Config, mc: dict | None = None) -> dict:
             "iv": grid[:, atm_i].round(2).tolist()}
 
     # --- Greeks (presentation layer) -------------------------------------
+    probe.mark("position_greeks", spot=spot, vix=vs.vix, t=cfg.dte / 365.0,
+               lot=lot, rate=cfg.risk_free_rate,
+               strikes=[l.strike for l in sig.legs])
     g = position_greeks(sig.legs, spot, vs.vix, cfg.dte / 365.0, lot,
                         cfg.risk_free_rate)
 
     # --- Option chain ----------------------------------------------------
+    probe.mark("chain_rows", spot=spot, vix=vs.vix)
     chain, chain_syn = _chain_rows(cfg, spot, vs.vix)
 
     # --- Risk ------------------------------------------------------------
@@ -170,6 +198,9 @@ def build_snapshot(cfg: Config, mc: dict | None = None) -> dict:
         })
 
     # --- Trade decision --------------------------------------------------
+    probe.mark("trade_decision", iv_rank=vs.iv_rank, vrp=vs.iv_minus_hv,
+               confidence=reg.confidence, p_inside1=vs.p_inside_1sigma,
+               credit=sig.credit, lot=lot)
     ivr = vs.iv_rank if vs.iv_rank == vs.iv_rank else 50.0
     premium_rich = max(0.0, min(100.0, 0.6 * ivr + 0.4 * max(0.0, vs.iv_minus_hv) * 10))
     edge = max(0.0, min(100.0, 0.5 * reg.confidence + 0.3 * ivr +

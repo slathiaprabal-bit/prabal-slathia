@@ -60,6 +60,11 @@ def option_greeks(spot: float, strike: float, t: float, vol: float,
     """
     if t <= 0 or vol <= 0 or spot <= 0 or strike <= 0:
         return Greeks()
+    from .instrument import DEBUG
+    if DEBUG:
+        import sys
+        sys.stderr.write(f"[QT-TRACE] bs.greeks            spot={spot:.6g} "
+                         f"strike={strike:.6g} t={t:.6g} vol={vol:.6g} kind={kind}\n")
     srt = vol * math.sqrt(t)
     d1 = (math.log(spot / strike) + (rate + 0.5 * vol * vol) * t) / srt
     d2 = d1 - srt
