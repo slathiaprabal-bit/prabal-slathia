@@ -1,0 +1,4 @@
+# Terminal API gateway (in addition to quant_engine/requirements.txt)
+fastapi>=0.110
+uvicorn[standard]>=0.27
+# websockets is pulled in by uvicorn[standard]
