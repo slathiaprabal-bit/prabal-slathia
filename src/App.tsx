@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { useTerminal } from './store';
 import { BackgroundFX } from './components/BackgroundFX';
 import { TopBar } from './components/TopBar';
+import { ErrorBanner } from './components/ErrorBanner';
 import { Panel } from './components/ui/Panel';
 import { RegimePanel } from './components/panels/RegimePanel';
 import { GreeksPanel } from './components/panels/GreeksPanel';
@@ -21,6 +22,7 @@ export default function App() {
     <div className="grid-bg flex h-screen flex-col overflow-hidden">
       <BackgroundFX />
       <TopBar />
+      <ErrorBanner />
       <main className="grid min-h-0 flex-1 grid-cols-12 grid-rows-6 gap-3 p-3">
         {/* LEFT COLUMN */}
         <Panel title="Market Regime" className="col-start-1 col-span-3 row-start-1 row-span-2" delay={0.05}>

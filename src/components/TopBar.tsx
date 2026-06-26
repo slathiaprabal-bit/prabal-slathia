@@ -14,6 +14,12 @@ export function TopBar() {
   }, []);
 
   const live = conn === 'live';
+  const isError = conn === 'error';
+  const badge = live
+    ? { label: 'LIVE', color: '#16f5b0' }
+    : isError
+    ? { label: 'BACKEND ERROR', color: '#ff2d6e' }
+    : { label: 'DEMO', color: '#ffb020' };
   return (
     <header className="flex h-12 shrink-0 items-center justify-between border-b border-white/5 px-5">
       <div className="flex items-center gap-3">
@@ -43,9 +49,9 @@ export function TopBar() {
           </div>
         </div>
         <div className="flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1">
-          {live ? <Wifi size={13} className="text-[#16f5b0]" /> : <WifiOff size={13} className="text-[#ffb020]" />}
-          <span className="text-[10px] font-semibold tracking-wide" style={{ color: live ? '#16f5b0' : '#ffb020' }}>
-            {live ? 'LIVE' : 'DEMO'}
+          {live ? <Wifi size={13} style={{ color: badge.color }} /> : <WifiOff size={13} style={{ color: badge.color }} />}
+          <span className="text-[10px] font-semibold tracking-wide" style={{ color: badge.color }}>
+            {badge.label}
           </span>
           <span className="mono ml-1 text-[10px] text-[color:var(--dim)]">{clock}</span>
         </div>

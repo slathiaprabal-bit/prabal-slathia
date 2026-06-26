@@ -144,4 +144,14 @@ export interface Snapshot {
   trade: Trade;
 }
 
-export type ConnState = 'connecting' | 'live' | 'mock';
+export type ConnState = 'connecting' | 'live' | 'mock' | 'error';
+
+export interface BackendError {
+  error: string;
+  type?: string;
+  origin?: string;
+  traceback?: string;
+  failing_stage?: string;
+  stage_inputs?: Record<string, string>;
+  where?: string;
+}

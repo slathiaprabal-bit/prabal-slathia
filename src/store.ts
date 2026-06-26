@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Snapshot, ConnState } from './types';
+import type { Snapshot, ConnState, BackendError } from './types';
 import { mockSnapshot } from './mock';
 
 const WS_URL =
@@ -10,74 +10,73 @@ interface TerminalState {
   snap: Snapshot | null;
   prev: Snapshot | null;
   conn: ConnState;
+  error: BackendError | null;
   setSnap: (s: Snapshot) => void;
   setConn: (c: ConnState) => void;
+  setError: (e: BackendError | null) => void;
 }
 
 export const useTerminal = create<TerminalState>((set, get) => ({
   snap: null,
   prev: null,
   conn: 'connecting',
+  error: null,
   setSnap: (s) => set({ snap: s, prev: get().snap }),
   setConn: (c) => set({ conn: c }),
+  setError: (e) => set({ error: e }),
 }));
 
-// Connect to the live backend; fall back to the in-browser mock so the
-// terminal is never empty. Auto-reconnects; once a real frame arrives we stop
-// the mock loop.
+// Strategy: populate with demo data IMMEDIATELY so the terminal is never blank,
+// then upgrade to the live WebSocket feed the moment a valid frame arrives. If
+// the backend streams an error payload (our instrumented traceback), surface it
+// in the UI instead of silently staying on demo data.
 export function startFeed() {
-  const { setSnap, setConn } = useTerminal.getState();
-  let mockTimer: number | null = null;
+  const { setSnap, setConn, setError } = useTerminal.getState();
   let gotLive = false;
 
-  const startMock = () => {
-    if (mockTimer !== null) return;
-    setConn((useTerminal.getState().conn === 'live' ? 'live' : 'mock'));
-    const loop = () => {
-      if (!gotLive) setSnap(mockSnapshot());
-      mockTimer = window.setTimeout(loop, 1000);
-    };
-    loop();
-  };
+  // Instant demo fill + keep ticking until/unless live takes over.
+  setSnap(mockSnapshot());
+  setConn('mock');
+  window.setInterval(() => {
+    if (!gotLive) setSnap(mockSnapshot());
+  }, 1000);
 
   const connect = () => {
     let ws: WebSocket;
     try {
       ws = new WebSocket(WS_URL);
     } catch {
-      startMock();
+      window.setTimeout(connect, 4000);
       return;
     }
 
-    const giveUp = window.setTimeout(() => {
-      if (!gotLive) startMock();
-    }, 2500);
-
     ws.onmessage = (ev) => {
+      let data: any;
       try {
-        const data = JSON.parse(ev.data);
-        if (data && data.regime) {
-          gotLive = true;
-          window.clearTimeout(giveUp);
-          if (mockTimer !== null) {
-            window.clearTimeout(mockTimer);
-            mockTimer = null;
-          }
-          setConn('live');
-          setSnap(data as Snapshot);
-        }
+        data = JSON.parse(ev.data);
       } catch {
-        /* ignore malformed frame */
+        return;
+      }
+      if (data && data.regime) {
+        // Valid live snapshot.
+        gotLive = true;
+        setError(null);
+        setConn('live');
+        setSnap(data as Snapshot);
+      } else if (data && (data.error || data.traceback)) {
+        // Instrumented backend error — show the traceback in the UI.
+        gotLive = false;
+        setError(data as BackendError);
+        setConn('error');
       }
     };
 
-    ws.onerror = () => {
-      if (!gotLive) startMock();
-    };
     ws.onclose = () => {
-      if (!gotLive) startMock();
-      // try to re-establish a live link periodically
-      window.setTimeout(connect, 4000);
+      if (!gotLive) setConn(useTerminal.getState().error ? 'error' : 'mock');
+      window.setTimeout(connect, 4000); // keep trying to (re)establish live
+    };
+    ws.onerror = () => {
+      /* onclose will handle retry */
     };
   };
 
