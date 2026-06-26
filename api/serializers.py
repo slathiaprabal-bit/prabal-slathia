@@ -1,0 +1,242 @@
+"""Serialize quant-engine outputs into the terminal's Snapshot schema.
+
+Every value here comes from the existing, untouched engine modules
+(`build_decision`, `surface_dashboard.build_surface`, `positioning`,
+`nse_chain`, `simulate`/`engine` backtest). This file only *reshapes* those
+outputs for the React/Three.js front end — no trading logic lives here.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+
+import numpy as np
+
+from quant_engine.config import Config
+from quant_engine.report import build_decision
+from quant_engine.surface_dashboard import build_surface
+from quant_engine.positioning import build_synthetic_chain
+from quant_engine.regimes import MarketRegime
+
+from .greeks import position_greeks
+
+
+# 12 engine regimes -> 6 UI states the spec asks for.
+_REGIME_UI = {
+    MarketRegime.STRONG_BULL: "TRENDING_UP", MarketRegime.SLOW_BULL: "TRENDING_UP",
+    MarketRegime.ACCUMULATION: "TRENDING_UP", MarketRegime.RECOVERY: "TRENDING_UP",
+    MarketRegime.STRONG_BEAR: "TRENDING_DOWN", MarketRegime.SLOW_BEAR: "TRENDING_DOWN",
+    MarketRegime.DISTRIBUTION: "TRENDING_DOWN",
+    MarketRegime.SIDEWAYS_HIGH_VOL: "VOLATILE", MarketRegime.COMPRESSION: "NORMAL",
+    MarketRegime.SIDEWAYS_LOW_VOL: "NORMAL",
+    MarketRegime.EXPANSION: "EVENT_RISK", MarketRegime.PANIC: "NO_GO",
+}
+
+
+def _ui_regime(reg) -> str:
+    state = _REGIME_UI.get(reg.regime, "NORMAL")
+    if not reg.policy.trade and state not in ("NO_GO", "EVENT_RISK", "VOLATILE"):
+        state = "NO_GO"
+    return state
+
+
+def _chain_rows(cfg: Config, spot: float, vix: float):
+    """Live NSE chain if reachable, else synthetic profile (labelled)."""
+    synthetic = True
+    try:
+        from quant_engine.nse_chain import nearest_expiry_frame
+        fr = nearest_expiry_frame(cfg.primary) if (cfg.use_live and cfg.use_live_chain) else None
+        if fr is not None and len(fr):
+            synthetic = False
+    except Exception:
+        fr = None
+    if fr is None:
+        fr = build_synthetic_chain(spot, vix, cfg)
+    rows = []
+    for _, r in fr.iterrows():
+        rows.append({
+            "strike": float(r["Strike"]),
+            "ceOI": float(r.get("CE_OI", 0) or 0),
+            "peOI": float(r.get("PE_OI", 0) or 0),
+            "ceIV": float(r.get("CE_IV", vix) or vix),
+            "peIV": float(r.get("PE_IV", vix) or vix),
+        })
+    rows.sort(key=lambda x: x["strike"])
+    return rows, synthetic
+
+
+def montecarlo(cfg: Config) -> dict:
+    """Bootstrap the backtest's per-trade PnL into ruin / drawdown views.
+
+    Mirrors simulate.py's resampling for *visualisation only* (histogram,
+    percentile cone) — the canonical numbers still come from the engine.
+    """
+    from quant_engine.engine import Backtest
+    from quant_engine.data import get_market_data
+    try:
+        df, _ = get_market_data(cfg)
+        tl = Backtest(cfg).run(df).trade_log()
+        pnls = tl["PnL"].to_numpy(dtype=float) if not tl.empty else np.array([0.0])
+    except Exception:
+        pnls = np.array([0.0])
+
+    rng = np.random.default_rng(cfg.seed)
+    n, paths, start = 50, 4000, cfg.capital
+    finals = np.empty(paths)
+    max_dd = np.empty(paths)
+    equity_paths = np.empty((paths, n + 1))
+    for p in range(paths):
+        draws = rng.choice(pnls, size=n, replace=True)
+        eq = start + np.concatenate([[0], np.cumsum(draws)])
+        peak = np.maximum.accumulate(eq)
+        equity_paths[p] = eq
+        max_dd[p] = ((peak - eq) / peak).max()
+        finals[p] = eq[-1]
+
+    ruin_thr = start * 0.5
+    ret_pct = 100 * (finals / start - 1.0)
+    hist, edges = np.histogram(ret_pct, bins=32)
+    # Drawdown cone: percentile bands of the equity path through time.
+    cone = {
+        "p05": np.percentile(equity_paths, 5, axis=0).round(0).tolist(),
+        "p50": np.percentile(equity_paths, 50, axis=0).round(0).tolist(),
+        "p95": np.percentile(equity_paths, 95, axis=0).round(0).tolist(),
+    }
+    return {
+        "startCapital": start,
+        "pRuin": float((finals <= ruin_thr).mean()),
+        "pDD10": float((max_dd > 0.10).mean()),
+        "pDD20": float((max_dd > 0.20).mean()),
+        "medianMaxDD": float(np.median(max_dd)),
+        "worstMaxDD": float(max_dd.max()),
+        "expectedDrawdown": float(np.mean(max_dd)),
+        "finalP05": float(np.percentile(finals, 5)),
+        "finalP50": float(np.percentile(finals, 50)),
+        "finalP95": float(np.percentile(finals, 95)),
+        "medianReturnPct": float(np.median(ret_pct)),
+        "hist": {"counts": hist.tolist(),
+                 "edges": edges.round(2).tolist()},
+        "cone": cone,
+        "samplePaths": equity_paths[:24].round(0).tolist(),
+    }
+
+
+def build_snapshot(cfg: Config, mc: dict | None = None) -> dict:
+    """The full live snapshot consumed by the terminal."""
+    d = build_decision(cfg)
+    vs, reg, pos, sig, sz = (d.vol_state, d.regime, d.positioning,
+                             d.signal, d.sizing)
+    lot = cfg.primary_instrument.lot_size
+    spot = vs.spot
+
+    # --- 3D IV surface (real chain IV if live, else parametric) ----------
+    strikes, dtes, grid = build_surface(vs, cfg)
+    surface = {
+        "strikes": strikes.round(0).tolist(),
+        "expiries": dtes.round(0).tolist(),
+        "iv": grid.round(2).tolist(),
+        "live": not pos.synthetic,
+    }
+    # Front-expiry smile + ATM term structure derived from the surface.
+    atm_i = int(np.argmin(np.abs(strikes - spot)))
+    smile = {"strikes": strikes.round(0).tolist(),
+             "iv": grid[0].round(2).tolist()}
+    term = {"dte": dtes.round(0).tolist(),
+            "iv": grid[:, atm_i].round(2).tolist()}
+
+    # --- Greeks (presentation layer) -------------------------------------
+    g = position_greeks(sig.legs, spot, vs.vix, cfg.dte / 365.0, lot,
+                        cfg.risk_free_rate)
+
+    # --- Option chain ----------------------------------------------------
+    chain, chain_syn = _chain_rows(cfg, spot, vs.vix)
+
+    # --- Risk ------------------------------------------------------------
+    equity = cfg.capital
+    risk = {
+        "equity": equity,
+        "capitalAtRisk": sz.capital_at_risk,
+        "portfolioHeat": (sz.capital_at_risk / equity) if equity else 0.0,
+        "marginUsed": sz.margin_used,
+        "marginUsage": (sz.margin_used / equity) if equity else 0.0,
+        "lots": sz.lots,
+        "kellyLots": sz.kelly_lots,
+        "kellyPct": (sz.kelly_lots / max(sz.lots, 1)) if sz.lots else 0.0,
+    }
+    if mc:
+        risk.update({
+            "probRuin": mc["pRuin"], "expectedDrawdown": mc["expectedDrawdown"],
+            "medianMaxDD": mc["medianMaxDD"], "worstMaxDD": mc["worstMaxDD"],
+        })
+
+    # --- Trade decision --------------------------------------------------
+    ivr = vs.iv_rank if vs.iv_rank == vs.iv_rank else 50.0
+    premium_rich = max(0.0, min(100.0, 0.6 * ivr + 0.4 * max(0.0, vs.iv_minus_hv) * 10))
+    edge = max(0.0, min(100.0, 0.5 * reg.confidence + 0.3 * ivr +
+                        20 * vs.p_inside_1sigma))
+    credit_rupees = sig.credit * lot
+    tp = credit_rupees * cfg.take_profit_frac
+    sl = credit_rupees * cfg.stop_loss_mult
+    reasons, rejects = [], []
+    if d.trade:
+        reasons = [reg.policy.edge, sig.note,
+                   f"IV-rank {ivr:.0f}, VRP {vs.iv_minus_hv:+.1f}",
+                   f"P(in 1σ range) {vs.p_inside_1sigma*100:.0f}%"]
+    else:
+        if not reg.policy.trade:
+            rejects.append(f"Regime {reg.regime.value}: {reg.policy.edge}")
+        if not sig.is_tradable:
+            rejects.append(sig.note or "No tradable structure")
+        if sz.lots == 0:
+            rejects.append(sz.reason)
+    trade = {
+        "decision": "TRADE" if d.trade else "NO_TRADE",
+        "confidence": d.confidence,
+        "edgeScore": round(edge, 0),
+        "premiumRichness": round(premium_rich, 0),
+        "structure": sig.strategy.value,
+        "expectedReturn": round(credit_rupees * max(sz.lots, 1), 0),
+        "maxLoss": sz.capital_at_risk or round(sig.max_risk * lot * max(sz.lots, 1), 0),
+        "tailRisk": round((mc["pDD20"] * 100) if mc else 0.0, 1),
+        "shortPut": sig.short_put, "shortCall": sig.short_call,
+        "takeProfit": round(tp, 0), "stopLoss": round(sl, 0),
+        "creditPerLot": round(credit_rupees, 0),
+        "reasons": [r for r in reasons if r],
+        "rejectReasons": [r for r in rejects if r],
+    }
+
+    return {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "source": d.source,
+        "spot": round(spot, 1),
+        "regime": {
+            "state": _ui_regime(reg),
+            "engineRegime": reg.regime.value,
+            "confidence": reg.confidence,
+            "direction": reg.direction,
+            "vix": vs.vix, "vixChg": reg.vix_chg,
+            "trendAtr": reg.trend_strength,
+            "note": reg.policy.edge,
+            "trade": reg.policy.trade,
+        },
+        "vol": {
+            "vix": vs.vix, "ivRank": round(ivr, 1), "ivPctile": vs.iv_pctile,
+            "hv20": vs.hv.get(20, float("nan")), "vrp": vs.iv_minus_hv,
+            "em1d": vs.em_1d, "emExpiry": vs.em_expiry,
+            "sigma1": [vs.sigma1_lo, vs.sigma1_hi],
+            "sigma2": [vs.sigma2_lo, vs.sigma2_hi],
+            "pInside1": vs.p_inside_1sigma,
+        },
+        "surface": surface, "smile": smile, "term": term,
+        "greeks": g.as_dict(),
+        "chain": chain, "chainSynthetic": chain_syn,
+        "positioning": {
+            "maxPain": pos.max_pain, "pcr": pos.pcr_oi,
+            "support": pos.support, "resistance": pos.resistance,
+            "gex": pos.gex, "gammaFlip": pos.gamma_flip,
+            "synthetic": pos.synthetic,
+        },
+        "risk": risk,
+        "montecarlo": mc or {},
+        "trade": trade,
+    }
