@@ -6,9 +6,11 @@ import { Sidebar } from './components/Sidebar';
 import { MarketNews } from './components/MarketNews';
 import { Loading } from './components/ui/Loading';
 import { WorkspaceRouter } from './workspaces/WorkspaceRouter';
+import { useResearchRecorder } from './lib/research/useRecorder';
 
 export default function App() {
   const snap = useTerminal((s) => s.snap);
+  useResearchRecorder(); // continuous research-DB capture (lib/research)
 
   return (
     <div className="grid-bg flex h-screen flex-col overflow-hidden" style={{ background: 'var(--bg0)' }}>
