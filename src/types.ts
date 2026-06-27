@@ -142,6 +142,41 @@ export interface Snapshot {
   risk: Risk;
   montecarlo: MonteCarlo;
   trade: Trade;
+  strategies: StrategyRanking;
 }
 
-export type ConnState = 'connecting' | 'live' | 'mock';
+export interface StrategyCandidate {
+  code: string;
+  name: string;
+  category: string;
+  score: number;
+  confidence: number;
+  ev: number;
+  pop: number;
+  maxGain: number;
+  maxLoss: number;
+  rrRatio: number;
+  risk: 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY_HIGH';
+  directional: 'bull' | 'bear' | 'neutral';
+  reasoning: string[];
+  ranked: number;
+}
+
+export interface StrategyRanking {
+  top3: StrategyCandidate[];
+  totalScored: number;
+  marketCondition: string;
+  allScores: Record<string, number>;
+}
+
+export type ConnState = 'connecting' | 'live' | 'mock' | 'error';
+
+export interface BackendError {
+  error: string;
+  type?: string;
+  origin?: string;
+  traceback?: string;
+  failing_stage?: string;
+  stage_inputs?: Record<string, string>;
+  where?: string;
+}

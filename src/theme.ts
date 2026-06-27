@@ -70,11 +70,14 @@ export const REGIME_THEME: Record<RegimeState, RegimeTheme> = {
   },
 };
 
-// Neon vol colourscale (low IV deep-blue -> high IV cyan/white).
+// Rainbow vol colourscale (deep blue → cyan → green → yellow → orange → red).
+// Matches the SPX institutional vol-surface aesthetic.
 export const IV_STOPS: [number, string][] = [
-  [0.0, '#08263f'],
-  [0.35, '#0a64a0'],
-  [0.6, '#16b6e6'],
-  [0.8, '#5fe6ff'],
-  [1.0, '#eafcff'],
+  [0.00, '#1a00d4'],   // deep indigo — lowest IV
+  [0.15, '#0055ff'],   // blue
+  [0.32, '#00c8ff'],   // cyan
+  [0.50, '#00e890'],   // green
+  [0.66, '#ffe000'],   // yellow
+  [0.82, '#ff7000'],   // orange
+  [1.00, '#ff0030'],   // red — highest IV
 ];

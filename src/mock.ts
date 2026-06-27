@@ -2,7 +2,7 @@
 // without the FastAPI backend running. Mirrors the real Snapshot shape and
 // morphs over time. When the WebSocket connects, real data takes over.
 
-import type { Snapshot, RegimeState, ChainRow } from './types';
+import type { Snapshot, RegimeState, ChainRow, StrategyRanking } from './types';
 
 const STRIKES = 41;
 const EXPIRIES = [2, 5, 9, 14, 21, 30, 45];
@@ -142,6 +142,7 @@ export function mockSnapshot(): Snapshot {
       worstMaxDD: 0.31,
     },
     montecarlo: mockMC(volBias),
+    strategies: mockStrategies(regime, Math.round(ivr * 100), volBias),
     trade: {
       decision: trade ? 'TRADE' : 'NO_TRADE',
       confidence: Math.round(trade ? 62 + Math.sin(t) * 12 : 30),
@@ -165,6 +166,86 @@ export function mockSnapshot(): Snapshot {
         : [],
       rejectReasons: trade ? [] : ['Vol expanding — short gamma dangerous. Stand aside.'],
     },
+  };
+}
+
+function mockStrategies(regime: RegimeState, ivr: number, volBias: boolean): StrategyRanking {
+  const isSell = ivr > 50;
+  const s1 = {
+    code: isSell ? 'WEEKLY_IC' : 'LONG_STRADDLE',
+    name: isSell ? 'Weekly Iron Condor' : 'Long Straddle',
+    category: isSell ? 'theta' : 'volatility',
+    score: Math.round(68 + Math.sin(tick * 0.4) * 8),
+    confidence: Math.round(62 + Math.sin(tick * 0.3) * 10),
+    ev: Math.round((isSell ? 1420 : -280) + Math.sin(tick * 0.5) * 180),
+    pop: Math.round(isSell ? 72 + Math.sin(tick * 0.3) * 4 : 44 + Math.sin(tick * 0.3) * 6),
+    maxGain: Math.round((isSell ? 1850 : 4200) + Math.sin(tick) * 200),
+    maxLoss: Math.round((isSell ? 11200 : 1850) + Math.sin(tick * 0.6) * 400),
+    rrRatio: isSell ? 0.17 : 2.27,
+    risk: (isSell ? 'MEDIUM' : 'MEDIUM') as any,
+    directional: 'neutral' as any,
+    reasoning: isSell
+      ? [`IV Rank ${ivr} — elevated premium, ideal for credit structures`,
+         `${regime.replace('_',' ')} regime aligns with trade mechanics`,
+         `VRP +2.4 — implied vol significantly overpriced vs realized`,
+         `P(inside 1σ) 71% — strong probability range support`]
+      : [`IV Rank ${ivr} — cheap vol, long vega positions rewarded`,
+         `${regime.replace('_',' ')} regime strongly favours volatility expansion`,
+         `VRP -1.8 — realized vol running above IV, long gamma rewarded`],
+    ranked: 1,
+  };
+  const s2 = {
+    code: isSell ? 'NIFTY_7DTE_IC' : 'LONG_STRANGLE',
+    name: isSell ? 'NIFTY 7-Day Iron Condor' : 'Long Strangle',
+    category: isSell ? 'nifty' : 'volatility',
+    score: Math.round(61 + Math.sin(tick * 0.5) * 7),
+    confidence: Math.round(57 + Math.sin(tick * 0.4) * 8),
+    ev: Math.round((isSell ? 980 : -120) + Math.sin(tick * 0.6) * 140),
+    pop: Math.round(isSell ? 70 + Math.sin(tick * 0.4) * 5 : 42 + Math.sin(tick * 0.4) * 5),
+    maxGain: Math.round((isSell ? 1600 : 6500) + Math.sin(tick) * 300),
+    maxLoss: Math.round((isSell ? 8800 : 1200) + Math.sin(tick * 0.7) * 300),
+    rrRatio: isSell ? 0.18 : 5.42,
+    risk: 'MEDIUM' as any,
+    directional: 'neutral' as any,
+    reasoning: isSell
+      ? [`IV Rank ${ivr} — premium environment supports short vol`,
+         `NIFTY weekly expiry creates optimal 7-DTE theta decay curve`,
+         `P(inside 1σ) 68% — probability supports short gamma`]
+      : [`IV Rank ${ivr} — vol compressed, long premium has edge`,
+         `Long strangle offers wider break-even vs straddle in ${regime.replace('_', ' ')}`,
+         `Lower debit cost preserves capital if vol crush occurs`],
+    ranked: 2,
+  };
+  const s3 = {
+    code: isSell ? 'IRON_FLY' : 'CALL_BACKSPREAD',
+    name: isSell ? 'Iron Butterfly' : 'Call Backspread 2:1',
+    category: isSell ? 'theta' : 'directional',
+    score: Math.round(54 + Math.sin(tick * 0.6) * 7),
+    confidence: Math.round(51 + Math.sin(tick * 0.5) * 9),
+    ev: Math.round((isSell ? 1950 : 380) + Math.sin(tick * 0.7) * 200),
+    pop: Math.round(isSell ? 58 + Math.sin(tick * 0.5) * 4 : 38 + Math.sin(tick * 0.5) * 5),
+    maxGain: Math.round((isSell ? 2800 : 9200) + Math.sin(tick) * 400),
+    maxLoss: Math.round((isSell ? 3200 : 600) + Math.sin(tick * 0.8) * 200),
+    rrRatio: isSell ? 0.88 : 15.3,
+    risk: (isSell ? 'MEDIUM' : 'MEDIUM') as any,
+    directional: (isSell ? 'neutral' : 'bull') as any,
+    reasoning: isSell
+      ? [`Iron Butterfly maximises ATM theta capture in high-IV environment`,
+         `Higher credit vs Iron Condor — IV Rank ${ivr} justifies tighter strikes`,
+         `VRP supports premium selling; max gain if spot pins at expiry`]
+      : [`Call Backspread benefits from explosive upside in ${regime.replace('_', ' ')}`,
+         `2:1 ratio captures unlimited upside while hedging initial cost`,
+         `Low IV means backspread debit is minimal vs potential gamma gains`],
+    ranked: 3,
+  };
+
+  return {
+    top3: [s1, s2, s3],
+    totalScored: 54,
+    marketCondition: isSell
+      ? `HIGH IV RANK (${ivr}) — premium-selling favoured · ${regime.replace('_', ' ')} regime · VIX ${(12 + ivr * 0.12).toFixed(1)}`
+      : `LOW IV RANK (${ivr}) — long volatility has edge · ${regime.replace('_', ' ')} regime · VIX ${(8 + ivr * 0.1).toFixed(1)}`,
+    allScores: {},
   };
 }
 

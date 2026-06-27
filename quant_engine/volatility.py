@@ -68,13 +68,25 @@ def prob_inside(spot: float, lower: float, upper: float,
     Returns a probability in [0,1]. Uses the risk-neutral-ish driftless
     approximation appropriate for short-dated premium selling.
     """
+    # Spot itself must be a positive price for a lognormal model to be defined.
+    if spot <= 0 or not math.isfinite(spot):
+        return 0.0
     sigma = (iv_pct / 100.0) * math.sqrt(max(days, 1) / 365.0)
     if sigma <= 0:
         return 1.0 if lower <= spot <= upper else 0.0
     # ln(S_T/S0) ~ N(-0.5 sigma^2, sigma^2)
     mu = -0.5 * sigma * sigma
-    def cdf(x):
+
+    def cdf(x: float) -> float:
+        # A lognormal price S_T is strictly positive, so the cumulative
+        # probability at or below any non-positive bound is exactly 0. Guard
+        # before math.log(): when an expected-move band (e.g. spot - em) crosses
+        # zero in an extreme-IV regime, `x` can be <= 0 and log(x/spot) is
+        # undefined. Returning 0.0 here is the correct probability, not a mask.
+        if x <= 0:
+            return 0.0
         return _norm_cdf((math.log(x / spot) - mu) / sigma)
+
     return round(max(0.0, min(1.0, cdf(upper) - cdf(lower))), 4)
 
 
