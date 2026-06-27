@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 import {
-  Layers, Cpu, ShieldAlert, Activity, Globe, PieChart, BookOpen, Settings,
+  Layers, Cpu, ShieldAlert, Activity, Globe, PieChart, BookOpen, FlaskConical, Settings,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { WorkspaceId } from '../types';
@@ -12,6 +12,7 @@ import { MarketBreadth } from './MarketBreadth';
 import { MacroIntelligence } from './MacroIntelligence';
 import { PortfolioAnalytics } from './PortfolioAnalytics';
 import { TradeJournal } from './TradeJournal';
+import { ResearchDashboard } from './ResearchDashboard';
 import { SettingsWorkspace } from './SettingsWorkspace';
 
 export interface WorkspaceDef {
@@ -80,6 +81,14 @@ export const WORKSPACES: WorkspaceDef[] = [
     icon: BookOpen,
     accent: '#f4b740',
     Component: TradeJournal,
+  },
+  {
+    id: 'research',
+    label: 'Research Lab',
+    subtitle: 'Validation · accuracy · calibration · model drift',
+    icon: FlaskConical,
+    accent: '#5aa9ff',
+    Component: ResearchDashboard,
   },
   {
     id: 'settings',

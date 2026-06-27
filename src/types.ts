@@ -202,6 +202,7 @@ export type WorkspaceId =
   | 'macro'
   | 'portfolio'
   | 'journal'
+  | 'research'
   | 'settings';
 
 export type ConnState = 'connecting' | 'live' | 'mock' | 'error';
