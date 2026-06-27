@@ -1,12 +1,15 @@
 import { Panel } from '../components/ui/Panel';
 import { useTerminal } from '../store';
+import { useDealer } from '../lib/dealer/useDealer';
 import { RegimePanel } from '../components/panels/RegimePanel';
+import { DealerPositioning } from '../components/dealer/DealerPositioning';
+import { Provenance } from '../components/ui/Provenance';
 
-// Option-positioning breadth from the engine: PCR, max-pain, support /
-// resistance, gamma exposure — rendered as a dealer-level price ladder.
+// Phase 3 · P2+P3 — institutional dealer positioning (GEX profile, gamma flip,
+// vanna/charm, max pain) from the Greeks + Dealer engines, plus PCR breadth.
 export function MarketBreadth() {
   const pos = useTerminal((s) => s.snap?.positioning);
-  const spot = useTerminal((s) => s.snap?.spot ?? 0);
+  const dealer = useDealer();
   const pcr = pos?.pcr ?? 0;
   const pcrBias = pcr > 1.15 ? 'PUT-HEAVY' : pcr < 0.85 ? 'CALL-HEAVY' : 'BALANCED';
   const pcrColor = pcr > 1.15 ? 'var(--pos)' : pcr < 0.85 ? 'var(--neg)' : 'var(--gold)';
@@ -34,90 +37,34 @@ export function MarketBreadth() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <Stat label="MAX PAIN" value={fmt(pos?.maxPain)} color="var(--gold)" />
-            <Stat label="NET GEX" value={fmt(pos?.gex)} color="var(--info)" />
+            <Mini label="CALL WALL" value={dealer ? Math.round(dealer.callWall).toLocaleString('en-IN') : '—'} color="var(--neg)" />
+            <Mini label="PUT WALL" value={dealer ? Math.round(dealer.putWall).toLocaleString('en-IN') : '—'} color="var(--pos)" />
           </div>
         </div>
       </Panel>
 
-      <Panel title="Dealer Levels · Gamma Exposure" accent="var(--info)" className="col-start-5 col-span-8 row-start-1 row-span-6" delay={0.12}>
-        <StrikeLadder
-          spot={spot}
-          maxPain={pos?.maxPain}
-          gammaFlip={pos?.gammaFlip ?? undefined}
-          support={pos?.support ?? []}
-          resistance={pos?.resistance ?? []}
-        />
+      <Panel
+        title="Dealer Positioning · Gamma Exposure"
+        accent="var(--info)"
+        className="col-start-5 col-span-8 row-start-1 row-span-6"
+        delay={0.12}
+        badge={<Provenance scope="chain" />}
+      >
+        {dealer ? <DealerPositioning d={dealer} /> : <Empty />}
       </Panel>
     </div>
   );
 }
 
-function StrikeLadder({ spot, maxPain, gammaFlip, support, resistance }: {
-  spot: number; maxPain?: number; gammaFlip?: number; support: number[]; resistance: number[];
-}) {
-  type Lvl = { v: number; label: string; color: string; emphasis?: boolean };
-  const levels: Lvl[] = [];
-  resistance.slice(0, 4).forEach((v, i) => levels.push({ v, label: `Resistance ${i + 1}`, color: 'var(--neg)' }));
-  support.slice(0, 4).forEach((v, i) => levels.push({ v, label: `Support ${i + 1}`, color: 'var(--pos)' }));
-  if (maxPain) levels.push({ v: maxPain, label: 'Max Pain', color: 'var(--gold)' });
-  if (gammaFlip) levels.push({ v: gammaFlip, label: 'Gamma Flip', color: 'var(--violet)' });
-  if (spot) levels.push({ v: spot, label: 'Spot', color: 'var(--text)', emphasis: true });
-
-  const vals = levels.map((l) => l.v);
-  const min = Math.min(...vals) * 0.999;
-  const max = Math.max(...vals) * 1.001;
-  const span = max - min || 1;
-  const y = (v: number) => ((max - v) / span) * 100;
-
-  // Sort for the side legend (high strike first).
-  const sorted = [...levels].sort((a, b) => b.v - a.v);
-
-  return (
-    <div className="flex h-full gap-3">
-      {/* Ladder rail */}
-      <div className="relative h-full flex-1">
-        {levels.map((l, i) => (
-          <div key={i} className="absolute left-0 right-0 flex items-center gap-2" style={{ top: `${y(l.v)}%`, transform: 'translateY(-50%)' }}>
-            <span className="w-20 shrink-0 text-right text-[9px] tracking-wide" style={{ color: l.color }}>{l.label}</span>
-            <span
-              className="h-px flex-1"
-              style={{ background: l.emphasis ? 'var(--text)' : l.color, opacity: l.emphasis ? 0.9 : 0.5, height: l.emphasis ? 2 : 1 }}
-            />
-            <span className="mono w-16 shrink-0 text-[11px] font-semibold" style={{ color: l.color }}>
-              {Math.round(l.v).toLocaleString('en-IN')}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Legend / table */}
-      <div className="flex w-40 shrink-0 flex-col justify-center gap-1 border-l border-[color:var(--line-soft)] pl-3">
-        <div className="eyebrow mb-1">LEVELS · {sorted.length}</div>
-        {sorted.map((l, i) => (
-          <div key={i} className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full" style={{ background: l.color }} />
-              <span className="text-[10px] text-[color:var(--dim)]">{l.label}</span>
-            </span>
-            <span className="mono text-[10.5px] font-semibold" style={{ color: l.color }}>{Math.round(l.v).toLocaleString('en-IN')}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+function Empty() {
+  return <div className="flex h-full items-center justify-center text-[11px] text-[color:var(--dim)]">Computing dealer positioning…</div>;
 }
 
-function Stat({ label, value, color }: { label: string; value: string; color: string }) {
+function Mini({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div className="cell px-2.5 py-1.5">
+    <div className="cell px-2.5 py-1.5 text-center">
       <div className="eyebrow text-[8px]">{label}</div>
-      <div className="mono mt-0.5 text-base font-bold" style={{ color }}>{value}</div>
+      <div className="mono mt-0.5 text-[13px] font-semibold" style={{ color }}>{value}</div>
     </div>
   );
-}
-
-function fmt(v?: number | null) {
-  if (v == null || !isFinite(v)) return '—';
-  return Math.abs(v) >= 1000 ? Math.round(v).toLocaleString('en-IN') : v.toFixed(2);
 }
