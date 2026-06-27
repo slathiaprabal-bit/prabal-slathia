@@ -5,15 +5,44 @@
   --font-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
 }
 
+/* ───────────────────────── Design tokens ─────────────────────────
+   Institutional dark terminal — deep-black base, neon accents, glass.   */
 :root {
-  --bg0: #070B14;
-  --bg1: #0a0f1e;
-  --bg2: #0d1428;
+  /* Surfaces */
+  --bg0: #05070b;
+  --bg1: #080c16;
+  --bg2: #0d1322;
+
+  /* Accents */
   --neon: #3fd6f5;
+  --blue: #2f7bff;
   --violet: #8b5cf6;
+  --orange: #ff8a3d;
+
+  /* Text */
   --text: #cfe3f5;
-  --dim: #4d6680;
-  --sidebar-w: 56px;
+  --dim: #5d7794;
+  --faint: #34465c;
+
+  /* Status */
+  --good: #16f5b0;
+  --warn: #ffb020;
+  --bad: #ff2d6e;
+
+  /* Spacing scale (4px base) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  /* Layout */
+  --sidebar-w: 60px;
+  --radius: 16px;
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 * {
@@ -28,10 +57,11 @@ body,
 }
 
 body {
-  background: #070B14;
+  background: var(--bg0);
   color: var(--text);
   font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   overflow: hidden;
 }
 
@@ -40,20 +70,21 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* ───────────────────────── Glass panels ───────────────────────── */
 .glass {
-  background: linear-gradient(160deg, rgba(16, 24, 52, 0.52), rgba(8, 12, 28, 0.44));
+  background: linear-gradient(160deg, rgba(16, 24, 52, 0.5), rgba(8, 12, 26, 0.42));
   border: 1px solid rgba(63, 180, 220, 0.1);
-  border-radius: 16px;
+  border-radius: var(--radius);
   backdrop-filter: blur(18px) saturate(130%);
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .glass-hover {
-  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.22s, border-color 0.22s;
+  transition: transform 0.22s var(--ease), box-shadow 0.22s, border-color 0.22s;
 }
 .glass-hover:hover {
   transform: translateY(-1px);
-  border-color: rgba(63, 214, 245, 0.28);
+  border-color: rgba(63, 214, 245, 0.26);
   box-shadow: 0 16px 50px rgba(0, 0, 0, 0.6), 0 0 24px rgba(63, 214, 245, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
@@ -65,39 +96,40 @@ body {
   color: var(--dim);
 }
 
-/* V2 sidebar */
+/* ───────────────────────── Sidebar ───────────────────────── */
 .sidebar {
   width: var(--sidebar-w);
   min-width: var(--sidebar-w);
-  background: linear-gradient(180deg, rgba(14, 18, 38, 0.9), rgba(8, 11, 22, 0.95));
+  background: linear-gradient(180deg, rgba(13, 18, 36, 0.92), rgba(6, 9, 18, 0.96));
   border-right: 1px solid rgba(63, 150, 220, 0.08);
   backdrop-filter: blur(20px);
+  z-index: 30;
 }
 
 .sidebar-item {
   cursor: pointer;
-  transition: color 0.18s, background 0.18s;
+  transition: color 0.18s, background 0.18s, border-color 0.18s, box-shadow 0.18s;
 }
 .sidebar-item:hover {
-  background: rgba(63, 214, 245, 0.07) !important;
-  border-color: rgba(63, 214, 245, 0.15) !important;
-  color: var(--neon) !important;
+  background: rgba(63, 214, 245, 0.07);
+  border-color: rgba(63, 214, 245, 0.15);
+  color: var(--neon);
 }
 
-/* Grid background scanlines */
+/* ───────────────────────── Background grid ───────────────────────── */
 .grid-bg::before {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(63, 150, 220, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(63, 150, 220, 0.035) 1px, transparent 1px);
+    linear-gradient(rgba(63, 150, 220, 0.032) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(63, 150, 220, 0.032) 1px, transparent 1px);
   background-size: 40px 40px;
   mask-image: radial-gradient(130% 80% at 50% 0%, black 30%, transparent 75%);
 }
 
-/* Scrollbar */
+/* ───────────────────────── Scrollbar ───────────────────────── */
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;
@@ -110,12 +142,29 @@ body {
   background: transparent;
 }
 
+/* ───────────────────────── Animations ───────────────────────── */
 @keyframes pulseGlow {
   0%, 100% { opacity: 0.45; }
   50% { opacity: 1; }
 }
 .pulse {
   animation: pulseGlow 2.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -480px 0; }
+  100% { background-position: 480px 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(63, 150, 220, 0.04) 25%,
+    rgba(63, 150, 220, 0.1) 37%,
+    rgba(63, 150, 220, 0.04) 63%
+  );
+  background-size: 960px 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 10px;
 }
 
 /* Glowing neon text helper */

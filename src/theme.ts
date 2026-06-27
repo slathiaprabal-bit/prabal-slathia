@@ -1,15 +1,18 @@
 import type { RegimeState } from './types';
 
-// Institutional dark palette: deep navy base, neon-blue / violet accents.
+// Institutional dark palette: deep-black base (#05070B), neon-cyan / deep-blue /
+// violet / orange accents — Bloomberg / Volmex / Deribit aesthetic.
 export const palette = {
-  bg0: '#05060d',
-  bg1: '#0a0e1c',
-  bg2: '#0e1430',
-  glass: 'rgba(14,20,48,0.55)',
-  glassBorder: 'rgba(96,150,220,0.16)',
+  bg0: '#05070B',
+  bg1: '#080C16',
+  bg2: '#0D1322',
+  glass: 'rgba(14,20,42,0.55)',
+  glassBorder: 'rgba(96,150,220,0.14)',
   neon: '#3fd6f5',
+  blue: '#2f7bff',
   violet: '#8b5cf6',
   cyan: '#22e0ff',
+  orange: '#ff8a3d',
   text: '#cfe3f5',
   dim: '#5d7794',
   good: '#16f5b0',

@@ -169,6 +169,17 @@ export interface StrategyRanking {
   allScores: Record<string, number>;
 }
 
+// 8 institutional workspaces — the sidebar navigation contract.
+export type WorkspaceId =
+  | 'volatility'
+  | 'strategy'
+  | 'risk'
+  | 'breadth'
+  | 'macro'
+  | 'portfolio'
+  | 'journal'
+  | 'settings';
+
 export type ConnState = 'connecting' | 'live' | 'mock' | 'error';
 
 export interface BackendError {

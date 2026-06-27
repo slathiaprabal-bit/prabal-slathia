@@ -3,10 +3,13 @@ import { Wifi, WifiOff } from 'lucide-react';
 import { useTerminal } from '../store';
 import { AnimatedNumber } from './ui/AnimatedNumber';
 import { signed } from '../lib/format';
+import { WORKSPACE_MAP } from '../workspaces/registry';
 
 export function TopBar() {
   const snap = useTerminal((s) => s.snap);
   const conn = useTerminal((s) => s.conn);
+  const workspace = useTerminal((s) => s.workspace);
+  const ws = WORKSPACE_MAP[workspace];
   const [clock, setClock] = useState('');
   useEffect(() => {
     const t = setInterval(
@@ -37,11 +40,14 @@ export function TopBar() {
             <span className="text-[color:var(--neon)]"> QUANT</span>
           </div>
           <div className="rounded bg-[#3fd6f5]/10 border border-[#3fd6f5]/20 px-1.5 py-0.5 text-[8px] font-bold tracking-widest text-[#3fd6f5]">
-            V2
+            V3
           </div>
         </div>
         <div className="h-4 w-px bg-white/[0.08]" />
-        <div className="eyebrow text-[9px]">NIFTY INDEX OPTIONS · VOLATILITY DESK</div>
+        <div className="flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: ws.accent, boxShadow: `0 0 8px ${ws.accent}` }} />
+          <span className="text-[11px] font-bold tracking-wide text-[color:var(--text)]">{ws.label}</span>
+        </div>
       </div>
 
       {/* Live metrics strip */}
