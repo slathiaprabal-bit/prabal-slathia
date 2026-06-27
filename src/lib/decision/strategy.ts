@@ -1,13 +1,7 @@
 import type { Direction, VolRegime, RecommendedStrategy } from './types';
 
-// Volatility-regime classifier — pure, replaceable (an HMM can override later).
-export function classifyVolRegime(ivRank: number, vix: number): VolRegime {
-  if (vix >= 24 || ivRank >= 85) return 'EXTREME';
-  if (vix >= 18 || ivRank >= 70) return 'HIGH';
-  if (vix >= 14 || ivRank >= 55) return 'ELEVATED';
-  if (vix >= 11 || ivRank >= 35) return 'NORMAL';
-  return 'LOW';
-}
+// Volatility-regime classification now lives in the Volatility Engine
+// (lib/vol). The strategy matrix consumes VolState.regime via VolRegime.
 
 interface SelectArgs {
   direction: Direction;
@@ -21,7 +15,7 @@ interface SelectArgs {
 // plug in — it returns the same RecommendedStrategy contract.
 export function selectStrategy({ direction, volRegime, sellingSuitability, trendStrength }: SelectArgs): RecommendedStrategy {
   const richVol = volRegime === 'HIGH' || volRegime === 'EXTREME' || volRegime === 'ELEVATED';
-  const cheapVol = volRegime === 'LOW';
+  const cheapVol = volRegime === 'LOW' || volRegime === 'VERY_LOW';
   const sell = sellingSuitability >= 55;
   const strongTrend = trendStrength >= 60;
 

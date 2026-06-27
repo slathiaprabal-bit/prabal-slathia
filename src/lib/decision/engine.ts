@@ -1,7 +1,7 @@
 import type { DecisionInputs, DecisionOutput, Direction, Domain, DomainSignal } from './types';
 import { clamp, round } from './types';
 import { DOMAINS } from './domains';
-import { classifyVolRegime, selectStrategy } from './strategy';
+import { selectStrategy } from './strategy';
 
 // Aggregate independent domain signals into a composite decision.
 // No if/else classification of raw data — every output is a weighted fusion of
@@ -30,8 +30,8 @@ export function runDecision(inputs: DecisionInputs, domains: Domain[] = DOMAINS)
   const sellingNet = signals.reduce((s, x) => s + x.weight * x.selling, 0) / sellingW; // -1..1
   const sellingSuitability = round(clamp((sellingNet + 1) * 50, 0, 100));
 
-  // ── Volatility regime ──
-  const volRegime = classifyVolRegime(inputs.vol.ivRank ?? 50, inputs.vol.vix);
+  // ── Volatility regime ── straight from the Volatility Engine ──
+  const volRegime = inputs.vol.regime;
 
   // ── Confidence ── domain agreement with the net direction + mean conviction
   const dir = Math.sign(directional) || 1;

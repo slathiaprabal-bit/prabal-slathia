@@ -2,9 +2,10 @@ import { lazy, Suspense, useState } from 'react';
 import { motion } from 'motion/react';
 import { Maximize2, Box, Grid3x3 } from 'lucide-react';
 import { useTerminal } from '../store';
+import { useVol } from '../lib/vol/useVol';
 import { Panel } from '../components/ui/Panel';
 import { VolMetricsGrid } from '../components/panels/VolMetricsGrid';
-import { IVRegimeDonut } from '../components/panels/IVRegimeDonut';
+import { VolEnginePanel } from '../components/vol/VolEnginePanel';
 import { LineChart } from '../components/charts/LineChart';
 
 const VolSurface = lazy(() =>
@@ -13,11 +14,12 @@ const VolSurface = lazy(() =>
 
 export function VolatilityTerminal() {
   const [wire, setWire] = useState(false);
+  const vol = useVol();
 
   return (
     <div className="grid h-full min-h-0 grid-cols-12 grid-rows-6 gap-2">
       {/* ── 3D VOL SURFACE HERO ── */}
-      <section className="glass relative col-start-1 col-span-8 row-start-1 row-span-4 overflow-hidden">
+      <section className="glass relative col-start-1 col-span-7 row-start-1 row-span-4 overflow-hidden">
         <div className="pointer-events-none absolute left-3.5 top-2.5 z-10">
           <div className="section-title">3D Volatility Surface</div>
           <div className="mt-0.5 text-[9px] tracking-wide text-[color:var(--dim)]">NIFTY · 29 MAY 2025 EXPIRY</div>
@@ -33,7 +35,6 @@ export function VolatilityTerminal() {
 
         <SurfaceBadge />
 
-        {/* IV colour bar with ticks */}
         <div className="pointer-events-none absolute right-3.5 top-1/2 z-10 flex -translate-y-1/2 items-center gap-1">
           <div className="flex flex-col justify-between py-0.5 text-[7px] text-[color:var(--dim)]" style={{ height: 120 }}>
             {[32, 24, 16, 8, 0].map((t) => <span key={t}>{t}</span>)}
@@ -54,45 +55,37 @@ export function VolatilityTerminal() {
         </Suspense>
       </section>
 
-      {/* ── VOLATILITY METRICS (grid) ── */}
-      <Panel title="Volatility Metrics" accent="var(--pos)" className="col-start-9 col-span-4 row-start-1 row-span-2" delay={0.06}>
+      {/* ── VOLATILITY ENGINE (flagship analytics) ── */}
+      <Panel title="Volatility Engine" accent="var(--info)" className="col-start-8 col-span-5 row-start-1 row-span-4" delay={0.06}>
+        {vol ? <VolEnginePanel v={vol} /> : <Empty />}
+      </Panel>
+
+      {/* ── VOLATILITY METRICS ── */}
+      <Panel title="Volatility Metrics" accent="var(--pos)" className="col-start-1 col-span-4 row-start-5 row-span-2" delay={0.12}>
         <VolMetricsGrid />
       </Panel>
 
       {/* ── VOLATILITY SMILE ── */}
-      <Panel title="Volatility Smile" accent="var(--gold)" className="col-start-9 col-span-4 row-start-3 row-span-2" delay={0.1}>
+      <Panel title="Volatility Smile" accent="var(--gold)" className="col-start-5 col-span-4 row-start-5 row-span-2" delay={0.16}>
         <SmileChart />
       </Panel>
 
       {/* ── TERM STRUCTURE ── */}
-      <Panel title="Term Structure" accent="var(--pos)" className="col-start-1 col-span-5 row-start-5 row-span-2" delay={0.14}>
+      <Panel title="Term Structure" accent="var(--pos)" className="col-start-9 col-span-4 row-start-5 row-span-2" delay={0.2}>
         <TermChart />
-      </Panel>
-
-      {/* ── IV REGIME ── */}
-      <Panel title="IV Regime" accent="var(--gold)" className="col-start-6 col-span-3 row-start-5 row-span-2" delay={0.18}>
-        <IVRegimeDonut />
-      </Panel>
-
-      {/* ── EXPIRY SNAPSHOT ── */}
-      <Panel title="Expiry Snapshot" accent="#5aa9ff" className="col-start-9 col-span-4 row-start-5 row-span-2" delay={0.22}>
-        <ExpirySnapshot />
       </Panel>
     </div>
   );
 }
 
+function Empty() {
+  return <div className="flex h-full items-center justify-center text-[11px] text-[color:var(--dim)]">Computing volatility state…</div>;
+}
+
 function Seg({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
   return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-1 rounded-[6px] border px-1.5 py-1 text-[9px] font-medium transition"
-      style={{
-        borderColor: active ? 'rgba(244,183,64,0.3)' : 'var(--line)',
-        background: active ? 'rgba(244,183,64,0.1)' : 'transparent',
-        color: active ? 'var(--gold)' : 'var(--dim)',
-      }}
-    >
+    <button onClick={onClick} className="flex items-center gap-1 rounded-[6px] border px-1.5 py-1 text-[9px] font-medium transition"
+      style={{ borderColor: active ? 'rgba(244,183,64,0.3)' : 'var(--line)', background: active ? 'rgba(244,183,64,0.1)' : 'transparent', color: active ? 'var(--gold)' : 'var(--dim)' }}>
       {icon}{label}
     </button>
   );
@@ -124,8 +117,8 @@ function SmileChart() {
   const smile = useTerminal((s) => s.snap?.smile);
   const spot = useTerminal((s) => s.snap?.spot);
   if (!smile) return null;
-  const weekAgo = smile.iv.map((v) => v * 0.94 + 0.4);
-  const monthAgo = smile.iv.map((v) => v * 0.88 + 0.8);
+  const weekAgo = smile.iv.map((x) => x * 0.94 + 0.4);
+  const monthAgo = smile.iv.map((x) => x * 0.88 + 0.8);
   return (
     <div className="flex h-full flex-col">
       <div className="mb-1 flex items-center gap-3 text-[8px] tracking-wide text-[color:var(--dim)]">
@@ -134,19 +127,8 @@ function SmileChart() {
         <Legend color="#4b515b" label="Month Ago" dashed />
       </div>
       <div className="min-h-0 flex-1">
-        <LineChart
-          x={smile.strikes ?? []}
-          y={smile.iv}
-          color="#f4b740"
-          marker={spot}
-          yLabel="IV %"
-          xLabel="strike"
-          dots
-          ghosts={[
-            { y: weekAgo, color: '#6b7280', dash: '4 3' },
-            { y: monthAgo, color: '#4b515b', dash: '4 3' },
-          ]}
-        />
+        <LineChart x={smile.strikes ?? []} y={smile.iv} color="#f4b740" marker={spot} yLabel="IV %" xLabel="strike" dots
+          ghosts={[{ y: weekAgo, color: '#6b7280', dash: '4 3' }, { y: monthAgo, color: '#4b515b', dash: '4 3' }]} />
       </div>
     </div>
   );
@@ -155,41 +137,7 @@ function SmileChart() {
 function TermChart() {
   const term = useTerminal((s) => s.snap?.term);
   if (!term) return null;
-  return (
-    <LineChart
-      x={term.dte ?? []}
-      y={term.iv}
-      color="#f4b740"
-      yLabel="IV %"
-      xLabel="days to expiry"
-      dots
-      pointLabels={(v) => `${v.toFixed(1)}%`}
-    />
-  );
-}
-
-function ExpirySnapshot() {
-  const vol = useTerminal((s) => s.snap?.vol);
-  const spot = useTerminal((s) => s.snap?.spot ?? 0);
-  if (!vol) return null;
-  const rows: [string, string, string][] = [
-    ['1σ LOW', vol.sigma1?.[0]?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) ?? '—', 'var(--neg)'],
-    ['1σ HIGH', vol.sigma1?.[1]?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) ?? '—', 'var(--pos)'],
-    ['2σ LOW', vol.sigma2?.[0]?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) ?? '—', 'var(--neg)'],
-    ['2σ HIGH', vol.sigma2?.[1]?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) ?? '—', 'var(--pos)'],
-    ['EM · 1 DAY', `±${vol.em1d.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, 'var(--text)'],
-    ['SPOT', spot.toLocaleString('en-IN', { maximumFractionDigits: 0 }), 'var(--text)'],
-  ];
-  return (
-    <div className="grid h-full grid-cols-2 grid-rows-3 gap-1.5">
-      {rows.map(([l, v, c]) => (
-        <div key={l} className="cell flex flex-col justify-center px-2.5 py-1">
-          <div className="eyebrow text-[8px]">{l}</div>
-          <div className="mono text-[13px] font-semibold" style={{ color: c }}>{v}</div>
-        </div>
-      ))}
-    </div>
-  );
+  return <LineChart x={term.dte ?? []} y={term.iv} color="#f4b740" yLabel="IV %" xLabel="days to expiry" dots pointLabels={(x) => `${x.toFixed(1)}%`} />;
 }
 
 function Legend({ color, label, dashed }: { color: string; label: string; dashed?: boolean }) {

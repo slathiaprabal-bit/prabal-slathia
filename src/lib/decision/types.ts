@@ -1,4 +1,5 @@
 import type { RegimeState } from '../../types';
+import type { VolState, VolRegime } from '../vol/types';
 
 // ── Decision Engine — type contract ───────────────────────────────────────
 // A composable scoring engine. Each DOMAIN is an independent, pure function that
@@ -10,14 +11,14 @@ export type DomainKey =
   | 'macro' | 'trend' | 'volatility' | 'breadth' | 'flow' | 'positioning' | 'risk';
 
 export type Direction = 'BULLISH' | 'NEUTRAL' | 'BEARISH';
-export type VolRegime = 'LOW' | 'NORMAL' | 'ELEVATED' | 'HIGH' | 'EXTREME';
+export type { VolRegime } from '../vol/types';
 
 // Inputs are pre-computed engine outputs — the decision layer never touches
 // raw ticks. This keeps every domain unit-testable with plain objects.
 export interface DecisionInputs {
   macro: { score: number; confidence: number };            // from Macro engine
   trend: { state: RegimeState; direction: string; confidence: number; trendAtr: number; vixChg: number };
-  vol: { ivRank: number; ivPctile: number | null; vrp: number | null; vix: number; pInside1: number; hv20: number | null };
+  vol: VolState;                                            // from Volatility engine (interface only)
   breadth: { ad: number; pcr: number };
   flow: { fii: number; dii: number };
   positioning: { pcr: number; maxPain: number; spot: number; support: number[]; resistance: number[]; gammaFlip: number | null };

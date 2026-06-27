@@ -47,24 +47,25 @@ export const trendDomain: Domain = {
   },
 };
 
-// ── VOLATILITY ── consumes the vol-state engine output ─────────────────────
+// ── VOLATILITY ── consumes the Volatility Engine's VolState interface only ──
 export const volatilityDomain: Domain = {
   key: 'volatility', label: 'Volatility', weight: 0.14,
   run: (i) => {
-    const v = i.vol;
-    const ivr = v.ivRank ?? 50;
-    const vrp = v.vrp ?? 0;
-    // Premium-selling edge: rich IV rank + positive variance risk premium.
-    const selling = clamp((ivr - 50) / 50 * 0.7 + clamp(vrp / 8, -1, 1) * 0.5, -1, 1);
-    // High vol carries a mild risk-off directional tilt.
-    const bias = clamp(-(v.vix - 15) / 22 * 0.35, -1, 1);
-    const strength = clamp(0.45 + Math.abs(ivr - 50) / 100, 0, 1);
+    const v = i.vol; // VolState
+    // Premium-selling favourability from the engine's richness / transition read.
+    const richBase = v.premiumRichness === 'RICH' ? 0.7 : v.premiumRichness === 'CHEAP' ? -0.7 : 0;
+    const transition = (v.compressionProb - v.expansionProb) / 100 * 0.5;
+    const vega = v.vegaBias === 'SHORT_VEGA' ? 0.2 : v.vegaBias === 'LONG_VEGA' ? -0.2 : 0;
+    const selling = clamp(richBase + transition + vega, -1, 1);
+    // Elevated vol carries a mild risk-off directional tilt.
+    const bias = clamp(-(v.score - 50) / 50 * 0.3, -1, 1);
+    const strength = clamp(0.4 + Math.abs(v.score - 50) / 100 + v.confidence / 300, 0, 1);
     return {
       bias, selling, strength,
-      detail: `IV Rank ${ivr.toFixed(0)}, VRP ${vrp >= 0 ? '+' : ''}${vrp.toFixed(1)} — premium ${selling > 0.2 ? 'rich' : selling < -0.2 ? 'cheap' : 'fair'}`,
+      detail: `${v.regime.replace('_', ' ')} vol (score ${v.score.toFixed(0)}), ${v.premiumRichness.toLowerCase()} premium, ${v.vegaBias.replace('_', ' ').toLowerCase()}`,
       metrics: [
-        { label: 'IVR', value: ivr.toFixed(0) },
-        { label: 'VRP', value: `${vrp >= 0 ? '+' : ''}${vrp.toFixed(1)}` },
+        { label: 'Vol Score', value: v.score.toFixed(0) },
+        { label: 'IVR', value: v.ivRank.toFixed(0) },
       ],
     };
   },

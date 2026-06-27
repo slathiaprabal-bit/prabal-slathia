@@ -5,7 +5,8 @@ const DIR_COLOR: Record<Direction, string> = {
   BULLISH: 'var(--pos)', NEUTRAL: 'var(--gold)', BEARISH: 'var(--neg)',
 };
 const VOL_COLOR: Record<VolRegime, string> = {
-  LOW: 'var(--info)', NORMAL: 'var(--pos)', ELEVATED: 'var(--gold)', HIGH: 'var(--neg)', EXTREME: 'var(--neg)',
+  VERY_LOW: 'var(--info)', LOW: 'var(--info)', NORMAL: 'var(--pos)',
+  ELEVATED: 'var(--gold)', HIGH: 'var(--neg)', EXTREME: 'var(--neg)',
 };
 
 // Top-level verdict: directional bias + confidence + the three decision metrics.
@@ -48,7 +49,7 @@ export function DecisionVerdict({ d }: { d: DecisionOutput }) {
         <Metric label="TREND STRENGTH" value={`${d.trendStrength.toFixed(0)}`} suffix="/100" bar={d.trendStrength} color="var(--info)" />
         <div className="cell flex flex-col justify-center px-2.5 py-2">
           <div className="eyebrow text-[8px]">VOL REGIME</div>
-          <div className="mt-1 text-[15px] font-bold" style={{ color: VOL_COLOR[d.volRegime] }}>{d.volRegime}</div>
+          <div className="mt-1 text-[15px] font-bold" style={{ color: VOL_COLOR[d.volRegime] }}>{d.volRegime.replace('_', ' ')}</div>
         </div>
         <Metric label="SELL SUITABILITY" value={`${d.sellingSuitability.toFixed(0)}`} suffix="/100" bar={d.sellingSuitability}
           color={d.sellingSuitability >= 55 ? 'var(--pos)' : d.sellingSuitability <= 40 ? 'var(--neg)' : 'var(--gold)'} />
