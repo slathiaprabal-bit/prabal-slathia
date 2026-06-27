@@ -1,11 +1,12 @@
 import { Panel } from '../components/ui/Panel';
-import { AIDecisionPanel } from '../components/panels/AIDecisionPanel';
 import { useDecision } from '../lib/decision/useDecision';
 import { useMonteCarlo } from '../lib/montecarlo/useMonteCarlo';
+import { useRanking } from '../lib/ranking/useRanking';
 import { DecisionVerdict } from '../components/decision/DecisionVerdict';
 import { DomainBreakdown } from '../components/decision/DomainBreakdown';
 import { StrategyRecommendation } from '../components/decision/StrategyRecommendation';
 import { MCProbabilityPanel } from '../components/montecarlo/MCProbabilityPanel';
+import { StrategyRanking } from '../components/ranking/StrategyRanking';
 
 // Phase 2 · Priority 2 — composable Decision Engine. Seven independent domains
 // (macro, trend, volatility, breadth, flow, positioning, risk) fuse into a
@@ -14,6 +15,7 @@ import { MCProbabilityPanel } from '../components/montecarlo/MCProbabilityPanel'
 export function StrategyLab() {
   const d = useDecision();
   const mc = useMonteCarlo();
+  const ranking = useRanking();
 
   return (
     <div className="grid h-full min-h-0 grid-cols-12 grid-rows-6 gap-2">
@@ -33,8 +35,8 @@ export function StrategyLab() {
         {mc ? <MCProbabilityPanel m={mc} /> : <Empty />}
       </Panel>
 
-      <Panel title="Ranked Structures · Engine" accent="var(--violet)" className="col-start-9 col-span-4 row-start-1 row-span-6" delay={0.2}>
-        <AIDecisionPanel />
+      <Panel title="AI Strategy Ranking · Decision-Driven" accent="var(--violet)" className="col-start-9 col-span-4 row-start-1 row-span-6" delay={0.2}>
+        {ranking ? <StrategyRanking items={ranking} /> : <Empty />}
       </Panel>
     </div>
   );
