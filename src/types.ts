@@ -131,6 +131,23 @@ export interface History {
   vix: number[];
 }
 
+export interface BacktestStats {
+  totalReturnPct: number | null;
+  totalPnl: number | null;
+  trades: number | null;
+  winRatePct: number | null;
+  profitFactor: number | null;
+  maxDrawdownPct: number | null;
+  sharpe: number | null;
+  finalEquity: number | null;
+  sourceCapital: number | null;
+}
+
+export interface Backtest {
+  stats: BacktestStats;
+  equity: { equity: number; drawdown: number }[];
+}
+
 export interface Snapshot {
   ts: string;
   source: string;
@@ -149,6 +166,7 @@ export interface Snapshot {
   trade: Trade;
   strategies: StrategyRanking;
   history?: History;
+  backtest?: Backtest;
 }
 
 export interface StrategyCandidate {
