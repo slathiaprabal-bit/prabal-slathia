@@ -20,6 +20,7 @@ from quant_engine.regimes import MarketRegime
 
 from .greeks import position_greeks
 from .instrument import Probe
+from .strategy_engine import MarketConditions, rank_strategies
 
 
 # 12 engine regimes -> 6 UI states the spec asks for.
@@ -236,6 +237,25 @@ def build_snapshot(cfg: Config, mc: dict | None = None,
         "rejectReasons": [r for r in rejects if r],
     }
 
+    # --- Strategy ranking (V2 AI Decision Engine) -------------------------
+    probe.mark("strategy_ranking", iv_rank=vs.iv_rank, regime=reg.regime.value)
+    mc_obj = MarketConditions(
+        spot=spot, vix=vs.vix,
+        iv_rank=vs.iv_rank if math.isfinite(vs.iv_rank) else 50.0,
+        iv_pctile=vs.iv_pctile if math.isfinite(vs.iv_pctile) else 50.0,
+        vrp=vs.iv_minus_hv if math.isfinite(vs.iv_minus_hv) else 0.0,
+        regime=_ui_regime(reg),
+        confidence=reg.confidence,
+        dte=cfg.dte,
+        p_inside_1sigma=vs.p_inside_1sigma,
+        em_expiry=vs.em_expiry,
+        lot_size=lot,
+    )
+    try:
+        strategies = rank_strategies(mc_obj)
+    except Exception:
+        strategies = {"top3": [], "totalScored": 0, "marketCondition": "", "allScores": {}}
+
     return {
         "ts": datetime.now(timezone.utc).isoformat(),
         "source": d.source,
@@ -270,4 +290,5 @@ def build_snapshot(cfg: Config, mc: dict | None = None,
         "risk": risk,
         "montecarlo": mc or {},
         "trade": trade,
+        "strategies": strategies,
     }
