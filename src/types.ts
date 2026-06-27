@@ -126,6 +126,11 @@ export interface Trade {
   rejectReasons: string[];
 }
 
+export interface History {
+  returns: number[]; // daily log returns (%)
+  vix: number[];
+}
+
 export interface Snapshot {
   ts: string;
   source: string;
@@ -143,6 +148,7 @@ export interface Snapshot {
   montecarlo: MonteCarlo;
   trade: Trade;
   strategies: StrategyRanking;
+  history?: History;
 }
 
 export interface StrategyCandidate {

@@ -129,6 +129,32 @@ def montecarlo(cfg: Config, probe: Probe | None = None) -> dict:
     }
 
 
+# Downsampled price/vol history for the frontend Hidden-Markov regime engine.
+# Memoised + refreshed every `every` calls so the 2s stream stays light.
+_HIST_CACHE: dict = {"n": 0, "data": None}
+
+
+def _history(cfg: Config, every: int = 30) -> dict:
+    c = _HIST_CACHE
+    if c["data"] is None or c["n"] % every == 0:
+        try:
+            from quant_engine.data import get_market_data
+            df, _ = get_market_data(cfg)
+            close = df["Close"].to_numpy(dtype=float)
+            rets = np.diff(np.log(close)) * 100.0
+            vix = (df["VIX"].to_numpy(dtype=float)[1:] if "VIX" in df.columns
+                   else np.full(len(rets), float("nan")))
+            n = min(len(rets), 180)
+            c["data"] = {
+                "returns": [round(float(x), 3) for x in rets[-n:]],
+                "vix": [round(float(x), 2) for x in vix[-n:]],
+            }
+        except Exception:
+            c["data"] = {"returns": [], "vix": []}
+    c["n"] += 1
+    return c["data"]
+
+
 def build_snapshot(cfg: Config, mc: dict | None = None,
                    probe: Probe | None = None) -> dict:
     """The full live snapshot consumed by the terminal."""
@@ -292,4 +318,5 @@ def build_snapshot(cfg: Config, mc: dict | None = None,
         "montecarlo": mc or {},
         "trade": trade,
         "strategies": strategies,
+        "history": _history(cfg),
     }

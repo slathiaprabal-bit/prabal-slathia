@@ -1,26 +1,28 @@
 import { Panel } from '../components/ui/Panel';
 import { useTerminal } from '../store';
 import { useDealer } from '../lib/dealer/useDealer';
-import { RegimePanel } from '../components/panels/RegimePanel';
+import { useHmm } from '../lib/hmm/useHmm';
+import { HmmRegimePanel } from '../components/hmm/HmmRegimePanel';
 import { DealerPositioning } from '../components/dealer/DealerPositioning';
 import { Provenance } from '../components/ui/Provenance';
 
-// Phase 3 · P2+P3 — institutional dealer positioning (GEX profile, gamma flip,
-// vanna/charm, max pain) from the Greeks + Dealer engines, plus PCR breadth.
+// Phase 3 · P2+P3+P4 — institutional dealer positioning (GEX, gamma flip,
+// vanna/charm, max pain) + Hidden Markov regime detection + PCR breadth.
 export function MarketBreadth() {
   const pos = useTerminal((s) => s.snap?.positioning);
   const dealer = useDealer();
+  const hmm = useHmm();
   const pcr = pos?.pcr ?? 0;
   const pcrBias = pcr > 1.15 ? 'PUT-HEAVY' : pcr < 0.85 ? 'CALL-HEAVY' : 'BALANCED';
   const pcrColor = pcr > 1.15 ? 'var(--pos)' : pcr < 0.85 ? 'var(--neg)' : 'var(--gold)';
 
   return (
     <div className="grid h-full min-h-0 grid-cols-12 grid-rows-6 gap-2">
-      <Panel title="Market Regime" className="col-start-1 col-span-4 row-start-1 row-span-2" delay={0.04}>
-        <RegimePanel />
+      <Panel title="Hidden Markov Regime" accent="var(--violet)" className="col-start-1 col-span-4 row-start-1 row-span-3" delay={0.04}>
+        {hmm ? <HmmRegimePanel h={hmm} /> : <Empty />}
       </Panel>
 
-      <Panel title="Put / Call Positioning" accent="var(--gold)" className="col-start-1 col-span-4 row-start-3 row-span-4" delay={0.08}>
+      <Panel title="Put / Call Positioning" accent="var(--gold)" className="col-start-1 col-span-4 row-start-4 row-span-3" delay={0.08}>
         <div className="flex h-full flex-col justify-between py-1">
           <div className="text-center">
             <div className="eyebrow">PCR · OPEN INTEREST</div>
