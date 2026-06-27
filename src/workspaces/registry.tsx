@@ -30,7 +30,7 @@ export const WORKSPACES: WorkspaceDef[] = [
     label: 'Volatility Terminal',
     subtitle: '3-D surface · smile · term structure · regime',
     icon: Layers,
-    accent: '#3fd6f5',
+    accent: '#f4b740',
     Component: VolatilityTerminal,
   },
   {
@@ -38,7 +38,7 @@ export const WORKSPACES: WorkspaceDef[] = [
     label: 'Strategy Lab',
     subtitle: 'AI decision engine · ranked option structures',
     icon: Cpu,
-    accent: '#16f5b0',
+    accent: '#27d17c',
     Component: StrategyLab,
   },
   {
@@ -46,7 +46,7 @@ export const WORKSPACES: WorkspaceDef[] = [
     label: 'Position Risk',
     subtitle: 'Portfolio Greeks · Monte-Carlo · risk of ruin',
     icon: ShieldAlert,
-    accent: '#ff2d6e',
+    accent: '#f04668',
     Component: PositionRisk,
   },
   {
@@ -54,7 +54,7 @@ export const WORKSPACES: WorkspaceDef[] = [
     label: 'Market Breadth',
     subtitle: 'Positioning · PCR · support / resistance · GEX',
     icon: Activity,
-    accent: '#ffb020',
+    accent: '#f4b740',
     Component: MarketBreadth,
   },
   {
@@ -62,7 +62,7 @@ export const WORKSPACES: WorkspaceDef[] = [
     label: 'Macro Intelligence',
     subtitle: 'USDINR · US10Y · DXY · commodities · flows',
     icon: Globe,
-    accent: '#c084fc',
+    accent: '#c79bff',
     Component: MacroIntelligence,
   },
   {
@@ -70,7 +70,7 @@ export const WORKSPACES: WorkspaceDef[] = [
     label: 'Portfolio Analytics',
     subtitle: 'Capital · heat · margin · drawdown cone',
     icon: PieChart,
-    accent: '#2f7bff',
+    accent: '#27d17c',
     Component: PortfolioAnalytics,
   },
   {
@@ -78,7 +78,7 @@ export const WORKSPACES: WorkspaceDef[] = [
     label: 'Trade Journal',
     subtitle: 'Live decision · structure · entry / exit rules',
     icon: BookOpen,
-    accent: '#ff8a3d',
+    accent: '#f4b740',
     Component: TradeJournal,
   },
   {
@@ -86,7 +86,7 @@ export const WORKSPACES: WorkspaceDef[] = [
     label: 'Settings',
     subtitle: 'Connection · data source · appearance',
     icon: Settings,
-    accent: '#5d7794',
+    accent: '#8a909a',
     Component: SettingsWorkspace,
   },
 ];

@@ -47,7 +47,7 @@ function GreekNotes() {
     <div className="flex h-full flex-col justify-center gap-2">
       {NOTES.map(([k, v]) => (
         <div key={k} className="rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2">
-          <div className="mono text-xs font-bold text-[color:var(--neon)]">{k}</div>
+          <div className="mono text-xs font-bold text-[color:var(--pos)]">{k}</div>
           <div className="mt-0.5 text-[11px] leading-snug text-[color:var(--dim)]">{v}</div>
         </div>
       ))}

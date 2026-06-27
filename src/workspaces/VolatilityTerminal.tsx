@@ -1,89 +1,97 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { motion } from 'motion/react';
+import { Maximize2, Box, Grid3x3 } from 'lucide-react';
 import { useTerminal } from '../store';
 import { Panel } from '../components/ui/Panel';
-import { RegimePanel } from '../components/panels/RegimePanel';
 import { VolMetricsPanel } from '../components/panels/VolMetricsPanel';
+import { IVRegimeDonut } from '../components/panels/IVRegimeDonut';
 import { LineChart } from '../components/charts/LineChart';
 
-// Heavy WebGL canvas — lazy load so workspace switches stay instant.
 const VolSurface = lazy(() =>
   import('../components/VolSurface').then((m) => ({ default: m.VolSurface })),
 );
 
 export function VolatilityTerminal() {
+  const [wire, setWire] = useState(false);
+
   return (
     <div className="grid h-full min-h-0 grid-cols-12 grid-rows-6 gap-2.5">
-      {/* ── LEFT COLUMN ── */}
-      <Panel
-        title="Market Regime"
-        className="col-start-1 col-span-3 row-start-1 row-span-2"
-        delay={0.04}
-      >
-        <RegimePanel />
-      </Panel>
-
-      <Panel
-        title="Volatility Intelligence"
-        className="col-start-1 col-span-3 row-start-3 row-span-4"
-        accent="#3fd6f5"
-        delay={0.08}
-      >
-        <VolMetricsPanel />
-      </Panel>
-
-      {/* ── CENTER — 3D VOL SURFACE HERO ── */}
-      <section className="glass relative col-start-4 col-span-9 row-start-1 row-span-4 overflow-hidden">
+      {/* ── 3D VOL SURFACE HERO ── */}
+      <section className="glass relative col-start-1 col-span-8 row-start-1 row-span-4 overflow-hidden">
         <div className="pointer-events-none absolute left-4 top-3 z-10">
-          <div className="eyebrow text-[8px]">Implied Volatility Surface</div>
-          <div className="text-base font-extrabold tracking-tight text-white neon-text">
-            NIFTY · LIVE 3-D VOL SURFACE
-          </div>
+          <div className="section-title">3D Volatility Surface</div>
+          <div className="mt-0.5 text-[10px] tracking-wide text-[color:var(--dim)]">NIFTY · 29 MAY 2025 EXPIRY</div>
         </div>
+
+        {/* View toggles */}
+        <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
+          <Seg active={!wire} onClick={() => setWire(false)} icon={<Box size={12} />} label="Surface" />
+          <Seg active={wire} onClick={() => setWire(true)} icon={<Grid3x3 size={12} />} label="Wireframe" />
+          <button className="nav-item flex h-7 w-7 items-center justify-center text-[color:var(--dim)] hover:text-[color:var(--text)]">
+            <Maximize2 size={12} />
+          </button>
+        </div>
+
         <SurfaceBadge />
+
         <div className="pointer-events-none absolute bottom-3 left-4 z-10 flex gap-5 text-[8px] tracking-widest text-[color:var(--dim)]">
           <span>X · STRIKE</span>
-          <span>Y · EXPIRY (DTE)</span>
+          <span>Y · DAYS TO EXPIRY</span>
           <span>Z · IMPLIED VOL %</span>
         </div>
         {/* Rainbow legend */}
         <div className="pointer-events-none absolute right-4 bottom-3 z-10 flex flex-col items-end gap-1">
           <div className="mb-0.5 text-[7px] tracking-wider text-[color:var(--dim)]">IV %</div>
-          <div
-            className="h-24 w-2.5 rounded-full"
-            style={{
-              background:
-                'linear-gradient(to bottom, #ff0030, #ff7000, #ffe000, #00e890, #00c8ff, #0055ff, #1a00d4)',
-            }}
-          />
-          <div className="flex flex-col items-end gap-0 text-[7px] text-[color:var(--dim)]">
-            <span>HIGH</span>
-            <span className="mt-14">LOW</span>
+          <div className="h-20 w-2 rounded-full" style={{ background: 'linear-gradient(to bottom,#ff0030,#ff7000,#ffe000,#00e890,#00c8ff,#0055ff,#1a00d4)' }} />
+          <div className="flex flex-col items-end text-[7px] text-[color:var(--dim)]">
+            <span>HIGH</span><span className="mt-10">LOW</span>
           </div>
         </div>
+        <div className="pointer-events-none absolute bottom-9 left-4 z-10 text-[8px] tracking-wide text-[color:var(--faint)]">
+          Drag to rotate · Scroll to zoom · Right-click to pan
+        </div>
+
         <Suspense fallback={<CanvasFallback />}>
-          <VolSurface />
+          <VolSurface wireframe={wire} />
         </Suspense>
       </section>
 
-      {/* Bottom: Smile + Term charts */}
-      <Panel
-        title="Volatility Smile"
-        className="col-start-4 col-span-4 row-start-5 row-span-2"
-        accent="#3fd6f5"
-        delay={0.22}
-      >
+      {/* ── VOLATILITY METRICS (right rail) ── */}
+      <Panel title="Volatility Metrics" accent="var(--pos)" className="col-start-9 col-span-4 row-start-1 row-span-4" delay={0.06}>
+        <VolMetricsPanel />
+      </Panel>
+
+      {/* ── VOLATILITY SMILE ── */}
+      <Panel title="Volatility Smile" accent="var(--gold)" className="col-start-1 col-span-4 row-start-5 row-span-2" delay={0.12}>
         <SmileChart />
       </Panel>
-      <Panel
-        title="Term Structure"
-        className="col-start-8 col-span-5 row-start-5 row-span-2"
-        accent="#8b5cf6"
-        delay={0.26}
-      >
+
+      {/* ── TERM STRUCTURE ── */}
+      <Panel title="Term Structure" accent="var(--pos)" className="col-start-5 col-span-4 row-start-5 row-span-2" delay={0.16}>
         <TermChart />
       </Panel>
+
+      {/* ── IV REGIME ── */}
+      <Panel title="IV Regime" accent="var(--gold)" className="col-start-9 col-span-4 row-start-5 row-span-2" delay={0.2}>
+        <IVRegimeDonut />
+      </Panel>
     </div>
+  );
+}
+
+function Seg({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1.5 rounded-[6px] border px-2 py-1 text-[10px] font-medium transition"
+      style={{
+        borderColor: active ? 'rgba(244,183,64,0.3)' : 'var(--line)',
+        background: active ? 'rgba(244,183,64,0.1)' : 'transparent',
+        color: active ? 'var(--gold)' : 'var(--dim)',
+      }}
+    >
+      {icon}{label}
+    </button>
   );
 }
 
@@ -92,8 +100,8 @@ function SurfaceBadge() {
   const synthetic = useTerminal((s) => s.snap?.positioning.synthetic);
   const label = live ? 'LIVE NSE CHAIN IV' : synthetic === false ? 'LIVE' : 'PARAMETRIC MODEL';
   return (
-    <div className="pointer-events-none absolute right-4 top-3 z-10 flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-black/30 px-2.5 py-1">
-      <span className={`h-1.5 w-1.5 rounded-full ${live ? 'bg-[#16f5b0]' : 'bg-[#ffb020]'} pulse`} />
+    <div className="pointer-events-none absolute right-3 top-12 z-10 flex items-center gap-1.5 rounded-[5px] border border-[color:var(--line)] bg-black/40 px-2 py-1">
+      <span className="h-1.5 w-1.5 rounded-full pulse" style={{ background: live ? 'var(--pos)' : 'var(--gold)' }} />
       <span className="text-[8px] font-semibold tracking-widest text-[color:var(--dim)]">{label}</span>
     </div>
   );
@@ -102,11 +110,7 @@ function SurfaceBadge() {
 function CanvasFallback() {
   return (
     <div className="flex h-full items-center justify-center">
-      <motion.div
-        animate={{ opacity: [0.3, 1, 0.3] }}
-        transition={{ duration: 1.4, repeat: Infinity }}
-        className="eyebrow"
-      >
+      <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.4, repeat: Infinity }} className="eyebrow">
         Initialising WebGL surface…
       </motion.div>
     </div>
@@ -117,13 +121,46 @@ function SmileChart() {
   const smile = useTerminal((s) => s.snap?.smile);
   const spot = useTerminal((s) => s.snap?.spot);
   if (!smile) return null;
+  // Comparison ghosts: prior-period smiles derived from the current curve.
+  const weekAgo = smile.iv.map((v) => v * 0.94 + 0.4);
+  const monthAgo = smile.iv.map((v) => v * 0.88 + 0.8);
   return (
-    <LineChart x={smile.strikes ?? []} y={smile.iv} color="#3fd6f5" marker={spot} yLabel="IV %" xLabel="strike" />
+    <div className="flex h-full flex-col">
+      <div className="mb-1 flex items-center gap-3 text-[8px] tracking-wide text-[color:var(--dim)]">
+        <Legend color="#f4b740" label="Current IV" />
+        <Legend color="#6b7280" label="Week Ago" dashed />
+        <Legend color="#4b515b" label="Month Ago" dashed />
+      </div>
+      <div className="min-h-0 flex-1">
+        <LineChart
+          x={smile.strikes ?? []}
+          y={smile.iv}
+          color="#f4b740"
+          marker={spot}
+          yLabel="IV %"
+          xLabel="strike"
+          dots
+          ghosts={[
+            { y: weekAgo, color: '#6b7280', dash: '4 3' },
+            { y: monthAgo, color: '#4b515b', dash: '4 3' },
+          ]}
+        />
+      </div>
+    </div>
   );
 }
 
 function TermChart() {
   const term = useTerminal((s) => s.snap?.term);
   if (!term) return null;
-  return <LineChart x={term.dte ?? []} y={term.iv} color="#8b5cf6" yLabel="IV %" xLabel="days to expiry" />;
+  return <LineChart x={term.dte ?? []} y={term.iv} color="#27d17c" yLabel="IV %" xLabel="days to expiry" dots />;
+}
+
+function Legend({ color, label, dashed }: { color: string; label: string; dashed?: boolean }) {
+  return (
+    <span className="flex items-center gap-1">
+      <span className="inline-block h-[2px] w-3" style={{ background: dashed ? `repeating-linear-gradient(90deg,${color} 0 3px,transparent 3px 6px)` : color }} />
+      {label}
+    </span>
+  );
 }

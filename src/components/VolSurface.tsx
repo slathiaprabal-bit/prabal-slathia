@@ -4,7 +4,7 @@ import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useTerminal } from '../store';
 import { REGIME_THEME, IV_STOPS } from '../theme';
-import { sampleScale, hexToRgb } from '../lib/format';
+import { sampleScale } from '../lib/format';
 import type { RegimeState } from '../types';
 
 const W = 10; // world width (strike axis)
@@ -19,40 +19,53 @@ function rgbStr(s: string): [number, number, number] {
   return [+m[1] / 255, +m[2] / 255, +m[3] / 255];
 }
 
-function SurfaceMesh() {
+function SurfaceMesh({ wireframe }: { wireframe: boolean }) {
   const surf = useTerminal((s) => s.snap?.surface);
   const regime = (useTerminal((s) => s.snap?.regime.state) ?? 'NORMAL') as RegimeState;
 
   const nx = surf?.strikes.length ?? 41;
   const ny = surf?.expiries.length ?? 7;
 
-  // Rebuild geometry only when the grid dimensions change.
+  // Higher-resolution mesh: subdivide each data cell for smoother shading.
+  const SUB = 3;
+  const segX = (nx - 1) * SUB;
+  const segY = (ny - 1) * SUB;
+
   const geom = useMemo(() => {
-    const g = new THREE.PlaneGeometry(W, D, nx - 1, ny - 1);
+    const g = new THREE.PlaneGeometry(W, D, segX, segY);
     const colors = new Float32Array(g.attributes.position.count * 3);
     g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     return g;
-  }, [nx, ny]);
+  }, [segX, segY]);
 
-  const targetH = useRef<Float32Array>(new Float32Array(nx * ny));
-  const accentRGB = useRef<[number, number, number]>([0.25, 0.84, 0.96]);
+  const targetH = useRef<Float32Array>(new Float32Array((segX + 1) * (segY + 1)));
 
-  // Recompute target heights whenever surface data updates.
+  // Bilinear-sample the IV grid onto the dense mesh whenever data updates.
   useMemo(() => {
     if (!surf) return;
-    const arr = new Float32Array(nx * ny);
+    const gw = segX + 1;
+    const gh = segY + 1;
+    const arr = new Float32Array(gw * gh);
     const rough = REGIME_THEME[regime].roughness;
-    for (let j = 0; j < ny; j++) {
-      for (let i = 0; i < nx; i++) {
-        const iv = surf.iv[j]?.[i] ?? IV_LO;
+    for (let jj = 0; jj < gh; jj++) {
+      for (let ii = 0; ii < gw; ii++) {
+        const fx = (ii / (gw - 1)) * (nx - 1);
+        const fy = (jj / (gh - 1)) * (ny - 1);
+        const i0 = Math.floor(fx), j0 = Math.floor(fy);
+        const i1 = Math.min(i0 + 1, nx - 1), j1 = Math.min(j0 + 1, ny - 1);
+        const tx = fx - i0, ty = fy - j0;
+        const v00 = surf.iv[j0]?.[i0] ?? IV_LO;
+        const v10 = surf.iv[j0]?.[i1] ?? IV_LO;
+        const v01 = surf.iv[j1]?.[i0] ?? IV_LO;
+        const v11 = surf.iv[j1]?.[i1] ?? IV_LO;
+        const iv = (v00 * (1 - tx) + v10 * tx) * (1 - ty) + (v01 * (1 - tx) + v11 * tx) * ty;
         const t = (iv - IV_LO) / (IV_HI - IV_LO);
-        const noise = rough * 0.5 * Math.sin(i * 1.7 + j * 2.3) * Math.cos(i * 0.9);
-        arr[j * nx + i] = Math.max(0, Math.min(1.15, t)) * HMAX + noise;
+        const noise = rough * 0.28 * Math.sin(ii * 0.7 + jj * 0.9) * Math.cos(ii * 0.4);
+        arr[jj * gw + ii] = Math.max(0, Math.min(1.15, t)) * HMAX + noise;
       }
     }
     targetH.current = arr;
-    accentRGB.current = rgbStr(`rgb(${hexToRgb(REGIME_THEME[regime].accent).join(',')})`);
-  }, [surf, regime, nx, ny]);
+  }, [surf, regime, nx, ny, segX, segY]);
 
   useFrame(() => {
     const pos = geom.attributes.position as THREE.BufferAttribute;
@@ -76,27 +89,28 @@ function SurfaceMesh() {
 
   return (
     <group rotation={[-Math.PI / 2, 0, 0]}>
-      {/* Solid neon surface */}
+      {/* Solid shaded surface */}
       <mesh geometry={geom} castShadow receiveShadow>
         <meshStandardMaterial
           vertexColors
-          metalness={0.35}
-          roughness={0.35}
-          emissive={new THREE.Color('#0a3d62')}
-          emissiveIntensity={0.35}
+          metalness={0.18}
+          roughness={0.55}
+          emissive={new THREE.Color('#000000')}
+          emissiveIntensity={0}
           transparent
-          opacity={0.92}
+          opacity={wireframe ? 0.05 : 0.96}
           side={THREE.DoubleSide}
+          flatShading={false}
         />
       </mesh>
-      {/* Glowing wireframe overlay (shares the morphing geometry) */}
+      {/* Wireframe overlay (rainbow vertex colours) */}
       <mesh geometry={geom}>
         <meshBasicMaterial
-          color={REGIME_THEME[regime].accent}
+          vertexColors={wireframe}
+          color={wireframe ? '#ffffff' : '#ffffff'}
           wireframe
           transparent
-          opacity={0.22}
-          blending={THREE.AdditiveBlending}
+          opacity={wireframe ? 0.85 : 0.08}
           depthWrite={false}
         />
       </mesh>
@@ -105,34 +119,21 @@ function SurfaceMesh() {
 }
 
 function Lights() {
-  const a = useRef<THREE.PointLight>(null);
-  const b = useRef<THREE.PointLight>(null);
-  const regime = (useTerminal((s) => s.snap?.regime.state) ?? 'NORMAL') as RegimeState;
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime;
-    if (a.current) {
-      a.current.position.set(Math.sin(t * 0.4) * 7, 6, Math.cos(t * 0.4) * 7);
-    }
-    if (b.current) {
-      b.current.position.set(Math.cos(t * 0.3) * -6, 4, Math.sin(t * 0.3) * 6);
-    }
-  });
-  const accent = REGIME_THEME[regime].accent;
   return (
     <>
-      <ambientLight intensity={0.35} />
-      <pointLight ref={a} color={accent} intensity={120} distance={40} />
-      <pointLight ref={b} color="#6a4cff" intensity={80} distance={40} />
-      <directionalLight position={[0, 10, 4]} intensity={0.5} />
+      <ambientLight intensity={0.55} />
+      <directionalLight position={[6, 12, 6]} intensity={1.1} color="#ffffff" />
+      <directionalLight position={[-8, 6, -4]} intensity={0.35} color="#9fb4d6" />
+      <pointLight position={[0, 8, 0]} intensity={30} distance={40} color="#ffffff" />
     </>
   );
 }
 
-function FloorGlow() {
+function FloorGrid() {
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]}>
-      <planeGeometry args={[W * 2.2, D * 2.4]} />
-      <meshBasicMaterial color="#06122a" transparent opacity={0.5} />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.08, 0]}>
+      <planeGeometry args={[W * 2.4, D * 2.6]} />
+      <meshBasicMaterial color="#000000" transparent opacity={0.85} />
     </mesh>
   );
 }
@@ -140,14 +141,13 @@ function FloorGlow() {
 function CameraRig() {
   const { camera } = useThree();
   useFrame(({ clock }) => {
-    // Subtle dynamic drift so the surface "breathes".
     const t = clock.elapsedTime;
-    camera.position.y = 5.4 + Math.sin(t * 0.25) * 0.4;
+    camera.position.y = 5.4 + Math.sin(t * 0.2) * 0.3;
   });
   return null;
 }
 
-export function VolSurface() {
+export function VolSurface({ wireframe = false }: { wireframe?: boolean }) {
   return (
     <div className="absolute inset-0">
       <Canvas
@@ -156,16 +156,16 @@ export function VolSurface() {
         camera={{ position: [9, 5.6, 9], fov: 42 }}
         shadows
       >
-        <fog attach="fog" args={['#05060d', 18, 38]} />
+        <fog attach="fog" args={['#000000', 20, 42]} />
         <Lights />
-        <FloorGlow />
-        <SurfaceMesh />
+        <FloorGrid />
+        <SurfaceMesh wireframe={wireframe} />
         <CameraRig />
         <OrbitControls
           enablePan
           enableZoom
           autoRotate
-          autoRotateSpeed={0.45}
+          autoRotateSpeed={0.35}
           minDistance={7}
           maxDistance={26}
           maxPolarAngle={Math.PI / 2.05}

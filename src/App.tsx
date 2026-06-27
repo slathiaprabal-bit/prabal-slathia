@@ -3,6 +3,7 @@ import { BackgroundFX } from './components/BackgroundFX';
 import { TopBar } from './components/TopBar';
 import { ErrorBanner } from './components/ErrorBanner';
 import { Sidebar } from './components/Sidebar';
+import { MarketNews } from './components/MarketNews';
 import { Loading } from './components/ui/Loading';
 import { WorkspaceRouter } from './workspaces/WorkspaceRouter';
 
@@ -22,6 +23,8 @@ export default function App() {
           {snap ? <WorkspaceRouter /> : <Loading />}
         </main>
       </div>
+
+      <MarketNews />
     </div>
   );
 }

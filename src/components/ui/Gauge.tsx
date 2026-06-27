@@ -46,13 +46,12 @@ export function Gauge({ value, label, display, color = '#3fd6f5', size = 96 }: P
             initial={false}
             animate={{ strokeDashoffset: dash * (1 - v) }}
             transition={{ duration: 0.7, ease: [0.2, 0.8, 0.2, 1] }}
-            style={{ filter: `drop-shadow(0 0 6px ${color})` }}
           />
         </g>
         <text x={cx} y={cy - 1} textAnchor="middle" className="mono" fontSize="15" fontWeight={700} fill={color}>
           {display}
         </text>
-        <text x={cx} y={cy + 14} textAnchor="middle" fontSize="8" fill="#5d7794" letterSpacing="1.5">
+        <text x={cx} y={cy + 14} textAnchor="middle" fontSize="8" fill="#8a909a" letterSpacing="1.5">
           {label}
         </text>
       </svg>

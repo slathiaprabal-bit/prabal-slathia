@@ -27,8 +27,8 @@ export function RegimePanel() {
             animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
             exit={{ opacity: 0, y: -10, filter: 'blur(6px)' }}
             transition={{ duration: 0.45 }}
-            className="text-[2.4rem] font-extrabold leading-none tracking-tight"
-            style={{ color: th.accent, textShadow: `0 0 28px ${th.glow}` }}
+            className="text-[1.7rem] font-extrabold leading-none tracking-tight"
+            style={{ color: th.accent }}
           >
             {th.label}
           </motion.div>

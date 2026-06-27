@@ -5,12 +5,12 @@ export function Loading() {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-5">
       <motion.div
-        className="flex h-14 w-14 items-center justify-center rounded-2xl"
-        style={{ background: 'linear-gradient(135deg,#3fd6f5,#8b5cf6)', boxShadow: '0 0 40px rgba(63,214,245,0.5)' }}
-        animate={{ scale: [1, 1.06, 1], opacity: [0.85, 1, 0.85] }}
-        transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+        className="flex h-14 w-14 items-center justify-center rounded-xl border border-[color:var(--gold)]/30"
+        style={{ background: 'linear-gradient(160deg,#15120a,#0a0a0a)' }}
+        animate={{ opacity: [0.7, 1, 0.7] }}
+        transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
       >
-        <span className="text-base font-black text-[#05070b]">VQ</span>
+        <span className="text-base font-black text-[color:var(--gold)]">VQ</span>
       </motion.div>
       <div className="text-center">
         <div className="text-sm font-extrabold tracking-widest text-white">VOLARA QUANT TERMINAL</div>

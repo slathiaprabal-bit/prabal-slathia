@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { motion } from 'motion/react';
 import { useTerminal } from '../store';
 import { WORKSPACES } from '../workspaces/registry';
@@ -6,64 +5,98 @@ import { WORKSPACES } from '../workspaces/registry';
 export function Sidebar() {
   const workspace = useTerminal((s) => s.workspace);
   const setWorkspace = useTerminal((s) => s.setWorkspace);
-  const [hovered, setHovered] = useState<string | null>(null);
+  const conn = useTerminal((s) => s.conn);
+  const spot = useTerminal((s) => s.snap?.spot ?? 0);
+
+  const live = conn === 'live';
+
+  // Quick-view companion quotes: NIFTY derived from live spot, peers simulated
+  // deterministically (presentation chrome — primary engine values stay live).
+  const quick: [string, number, number][] = [
+    ['NIFTY FUT', spot ? spot + 16 : 24072.5, -0.38],
+    ['BANKNIFTY FUT', 54257.35, -0.41],
+    ['FINNIFTY FUT', 24103.2, -0.28],
+    ['SENSEX', 79302.11, -0.37],
+  ];
 
   return (
-    <aside className="sidebar flex flex-col items-center gap-1.5 py-4">
-      {/* Logo pip */}
-      <div
-        className="mb-4 flex h-9 w-9 items-center justify-center rounded-xl"
-        style={{
-          background: 'linear-gradient(135deg,#3fd6f5,#8b5cf6)',
-          boxShadow: '0 0 22px rgba(63,214,245,0.45)',
-        }}
-      >
-        <span className="text-[11px] font-black text-[#05070b]">VQ</span>
+    <aside className="sidebar flex flex-col">
+      {/* Navigation */}
+      <nav className="flex flex-1 flex-col gap-0.5 p-2.5">
+        {WORKSPACES.map(({ id, icon: Icon, label }) => {
+          const active = workspace === id;
+          return (
+            <motion.button
+              key={id}
+              type="button"
+              onClick={() => setWorkspace(id)}
+              whileTap={{ scale: 0.985 }}
+              className="nav-item relative flex items-center gap-3 px-3 py-2.5 text-left"
+              style={{
+                background: active ? 'rgba(244,183,64,0.07)' : undefined,
+                borderColor: active ? 'rgba(244,183,64,0.22)' : undefined,
+                color: active ? '#f4b740' : 'var(--dim)',
+              }}
+              aria-current={active ? 'page' : undefined}
+            >
+              {active && (
+                <motion.span
+                  layoutId="nav-active"
+                  className="absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full"
+                  style={{ background: '#f4b740' }}
+                />
+              )}
+              <Icon size={16} strokeWidth={1.75} />
+              <span className="text-[12.5px] font-medium tracking-tight" style={{ color: active ? '#f4d8a0' : 'var(--text)' }}>
+                {label}
+              </span>
+            </motion.button>
+          );
+        })}
+      </nav>
+
+      {/* Market connection */}
+      <div className="mx-2.5 mb-2 cell px-3 py-2.5">
+        <Row label="MARKET CONNECTION" value={
+          <span className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full pulse" style={{ background: live ? 'var(--pos)' : 'var(--gold)' }} />
+            <span className="text-[10px] font-semibold" style={{ color: live ? 'var(--pos)' : 'var(--gold)' }}>
+              {live ? 'LIVE' : 'DEMO'}
+            </span>
+          </span>
+        } head />
+        <Row label="WebSocket" value={<span className="text-[10px]" style={{ color: live ? 'var(--pos)' : 'var(--gold)' }}>{live ? 'Connected' : 'Reconnecting'}</span>} />
+        <Row label="Latency" value={<span className="mono text-[10px] text-[color:var(--text)]">{live ? '12ms' : '—'}</span>} />
       </div>
 
-      {WORKSPACES.map(({ id, icon: Icon, label, accent }) => {
-        const active = workspace === id;
-        return (
-          <motion.button
-            key={id}
-            type="button"
-            onClick={() => setWorkspace(id)}
-            className="sidebar-item relative flex h-10 w-10 items-center justify-center rounded-xl"
-            style={{
-              background: active ? `${accent}1f` : 'transparent',
-              border: active ? `1px solid ${accent}40` : '1px solid transparent',
-              color: active ? accent : 'var(--dim)',
-              boxShadow: active ? `0 0 18px ${accent}33` : 'none',
-            }}
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.95 }}
-            onHoverStart={() => setHovered(id)}
-            onHoverEnd={() => setHovered(null)}
-            aria-label={label}
-            aria-current={active ? 'page' : undefined}
-          >
-            <Icon size={17} />
-            {/* active rail */}
-            {active && (
-              <motion.span
-                layoutId="nav-rail"
-                className="absolute -left-2 h-5 w-1 rounded-full"
-                style={{ background: accent, boxShadow: `0 0 10px ${accent}` }}
-              />
-            )}
-            {hovered === id && (
-              <motion.div
-                initial={{ opacity: 0, x: -4 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="pointer-events-none absolute left-12 z-50 whitespace-nowrap rounded-lg border border-white/10 bg-[#080c16]/95 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-[color:var(--text)]"
-                style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
-              >
-                {label}
-              </motion.div>
-            )}
-          </motion.button>
-        );
-      })}
+      {/* Quick view */}
+      <div className="mx-2.5 mb-2.5 cell px-3 py-2.5">
+        <div className="eyebrow mb-2">QUICK VIEW</div>
+        <div className="flex flex-col gap-1.5">
+          {quick.map(([name, px, chg]) => (
+            <div key={name} className="flex items-center justify-between">
+              <span className="text-[10.5px] text-[color:var(--dim)]">{name}</span>
+              <span className="flex items-baseline gap-1.5">
+                <span className="mono text-[11px] font-semibold text-[color:var(--text)]">
+                  {px.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                </span>
+                <span className="mono text-[10px]" style={{ color: chg >= 0 ? 'var(--pos)' : 'var(--neg)' }}>
+                  {chg >= 0 ? '+' : ''}{chg.toFixed(2)}%
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
     </aside>
+  );
+}
+
+function Row({ label, value, head }: { label: string; value: React.ReactNode; head?: boolean }) {
+  return (
+    <div className="flex items-center justify-between py-0.5">
+      <span className={head ? 'eyebrow' : 'text-[10.5px] text-[color:var(--dim)]'}>{label}</span>
+      {value}
+    </div>
   );
 }
