@@ -7,7 +7,7 @@ export function TradeDecisionPanel() {
   const trade = useTerminal((s) => s.snap?.trade);
   if (!trade) return null;
   const go = trade.decision === 'TRADE';
-  const accent = go ? '#16f5b0' : '#ff2d6e';
+  const accent = go ? '#27d17c' : '#f04668';
 
   return (
     <div className="flex h-full flex-col">
@@ -30,8 +30,8 @@ export function TradeDecisionPanel() {
 
       {/* Score bars */}
       <div className="mt-3 space-y-2">
-        <ScoreBar label="EDGE SCORE" value={trade.edgeScore} color="#3fd6f5" />
-        <ScoreBar label="PREMIUM RICHNESS" value={trade.premiumRichness} color="#c084fc" />
+        <ScoreBar label="EDGE SCORE" value={trade.edgeScore} color="#5aa9ff" />
+        <ScoreBar label="PREMIUM RICHNESS" value={trade.premiumRichness} color="#c79bff" />
       </div>
 
       {/* Metrics grid */}
@@ -66,7 +66,7 @@ export function TradeDecisionPanel() {
 function ConfDial({ value, color }: { value: number; color: string }) {
   return (
     <div className="text-right">
-      <AnimatedNumber value={value} format={(v) => `${v.toFixed(0)}`} className="text-3xl font-extrabold" />
+      <AnimatedNumber value={value} format={(v) => `${v.toFixed(0)}`} className="text-2xl font-bold" />
       <span className="text-sm font-bold" style={{ color }}>
         %
       </span>
@@ -89,7 +89,7 @@ function ScoreBar({ label, value, color }: { label: string; value: number; color
           className="h-full rounded-full"
           animate={{ width: `${Math.max(0, Math.min(100, value))}%` }}
           transition={{ duration: 0.6 }}
-          style={{ background: `linear-gradient(90deg, ${color}55, ${color})`, boxShadow: `0 0 10px ${color}` }}
+          style={{ background: `linear-gradient(90deg, ${color}55, ${color})` }}
         />
       </div>
     </div>
@@ -97,9 +97,9 @@ function ScoreBar({ label, value, color }: { label: string; value: number; color
 }
 
 function Metric({ label, value, good, bad }: { label: string; value: string; good?: boolean; bad?: boolean }) {
-  const color = good ? '#16f5b0' : bad ? '#ff7a8a' : 'var(--text)';
+  const color = good ? '#27d17c' : bad ? '#f04668' : 'var(--text)';
   return (
-    <div className="rounded-lg border border-white/5 bg-white/[0.02] px-2 py-1.5">
+    <div className="cell px-2 py-1.5">
       <div className="eyebrow text-[9px]">{label}</div>
       <div className="mono text-sm font-semibold" style={{ color }}>
         {value}

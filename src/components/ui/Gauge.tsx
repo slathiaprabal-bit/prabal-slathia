@@ -9,7 +9,7 @@ interface Props {
 }
 
 // Radial arc gauge (270° sweep). GPU-friendly SVG, animated stroke.
-export function Gauge({ value, label, display, color = '#3fd6f5', size = 96 }: Props) {
+export function Gauge({ value, label, display, color = '#5aa9ff', size = 96 }: Props) {
   const v = Math.max(0, Math.min(1, value));
   const r = size / 2 - 9;
   const cx = size / 2;

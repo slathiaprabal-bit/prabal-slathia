@@ -49,7 +49,7 @@ export function RegimePanel() {
 
 function Stat({ label, value, accent }: { label: string; value: React.ReactNode; accent: string }) {
   return (
-    <div className="rounded-lg border border-white/5 bg-white/[0.02] px-2 py-1.5">
+    <div className="cell px-2 py-1.5">
       <div className="eyebrow text-[9px]">{label}</div>
       <div className="mono text-base font-semibold" style={{ color: accent }}>
         {value}

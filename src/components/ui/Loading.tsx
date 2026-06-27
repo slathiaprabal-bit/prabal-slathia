@@ -5,7 +5,7 @@ export function Loading() {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-5">
       <motion.div
-        className="flex h-14 w-14 items-center justify-center rounded-xl border border-[color:var(--gold)]/30"
+        className="flex h-14 w-14 items-center justify-center rounded-[8px] border border-[color:var(--gold)]/30"
         style={{ background: 'linear-gradient(160deg,#15120a,#0a0a0a)' }}
         animate={{ opacity: [0.7, 1, 0.7] }}
         transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}

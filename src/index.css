@@ -25,10 +25,12 @@
   --faint: #4b515b;
 
   /* Semantic accents — used sparingly */
-  --pos: #27d17c;
-  --lime: #9be83a;
-  --gold: #f4b740;
-  --neg: #f04668;
+  --pos: #27d17c;   /* bullish / positive */
+  --lime: #9be83a;  /* strong positive */
+  --gold: #f4b740;  /* warning / active / brand */
+  --neg: #f04668;   /* bearish / negative */
+  --violet: #c79bff;/* secondary accent (percentile, macro) */
+  --info: #5aa9ff;  /* data blue — surfaces / charts only */
 
   /* Layout */
   --sidebar-w: 212px;

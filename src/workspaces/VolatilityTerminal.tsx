@@ -86,7 +86,7 @@ function Seg({ active, onClick, icon, label }: { active: boolean; onClick: () =>
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-1 rounded-[5px] border px-1.5 py-1 text-[9px] font-medium transition"
+      className="flex items-center gap-1 rounded-[6px] border px-1.5 py-1 text-[9px] font-medium transition"
       style={{
         borderColor: active ? 'rgba(244,183,64,0.3)' : 'var(--line)',
         background: active ? 'rgba(244,183,64,0.1)' : 'transparent',

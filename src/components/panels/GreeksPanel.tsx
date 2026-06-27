@@ -24,9 +24,9 @@ const SPECS: Spec[] = [
 
 function riskColor(v: number, hot: number): string {
   const m = Math.min(1, Math.abs(v) / hot);
-  if (m < 0.4) return '#16f5b0';
-  if (m < 0.75) return '#ffb020';
-  return '#ff2d6e';
+  if (m < 0.4) return '#27d17c';
+  if (m < 0.75) return '#f4b740';
+  return '#f04668';
 }
 
 export function GreeksPanel() {
@@ -44,11 +44,11 @@ export function GreeksPanel() {
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: i * 0.03 }}
-            className="relative overflow-hidden rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-2"
+            className="relative overflow-hidden cell px-2.5 py-2"
           >
             <div className="flex items-center justify-between">
               <span className="text-[10px] tracking-wide text-[color:var(--dim)]">{s.label}</span>
-              <span className="h-1.5 w-1.5 rounded-full" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
             </div>
             <AnimatedNumber
               value={v}
@@ -60,7 +60,7 @@ export function GreeksPanel() {
                 className="h-full rounded-full"
                 animate={{ width: `${mag * 100}%` }}
                 transition={{ duration: 0.5 }}
-                style={{ background: color, boxShadow: `0 0 8px ${color}` }}
+                style={{ background: color }}
               />
             </div>
           </motion.div>

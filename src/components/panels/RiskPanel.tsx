@@ -17,11 +17,11 @@ export function RiskPanel() {
   return (
     <div className="flex h-full flex-col gap-2">
       <div className="grid grid-cols-5 gap-1">
-        <Gauge value={heat / 0.05} label="HEAT" display={pct(heat, 1)} color="#16f5b0" size={84} />
-        <Gauge value={margin / 0.6} label="MARGIN" display={pct(margin, 0)} color="#3fd6f5" size={84} />
-        <Gauge value={ruin / 0.1} label="P(RUIN)" display={pct(ruin, 1)} color="#ff2d6e" size={84} />
-        <Gauge value={edd / 0.2} label="E[DD]" display={pct(edd, 1)} color="#ffb020" size={84} />
-        <Gauge value={kelly} label="KELLY" display={pct(kelly, 0)} color="#c084fc" size={84} />
+        <Gauge value={heat / 0.05} label="HEAT" display={pct(heat, 1)} color="#27d17c" size={84} />
+        <Gauge value={margin / 0.6} label="MARGIN" display={pct(margin, 0)} color="#5aa9ff" size={84} />
+        <Gauge value={ruin / 0.1} label="P(RUIN)" display={pct(ruin, 1)} color="#f04668" size={84} />
+        <Gauge value={edd / 0.2} label="E[DD]" display={pct(edd, 1)} color="#f4b740" size={84} />
+        <Gauge value={kelly} label="KELLY" display={pct(kelly, 0)} color="#c79bff" size={84} />
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-center">
@@ -40,7 +40,7 @@ export function RiskPanel() {
 
 function Mini({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/5 bg-white/[0.02] py-1.5">
+    <div className="cell py-1.5">
       <div className="eyebrow text-[9px]">{label}</div>
       <div className="mono text-sm font-semibold text-[color:var(--text)]">{value}</div>
     </div>

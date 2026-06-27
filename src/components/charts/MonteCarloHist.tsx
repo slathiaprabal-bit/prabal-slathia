@@ -55,16 +55,16 @@ function Bars({
               animate={{ y: y(c), height: bh }}
               transition={{ duration: 0.5, ease: 'easeOut' }}
               rx={1}
-              fill={up ? '#16f5b0' : '#ff2d6e'}
+              fill={up ? '#27d17c' : '#f04668'}
               opacity={0.82}
-              style={{ filter: `drop-shadow(0 0 4px ${up ? 'rgba(22,245,176,0.5)' : 'rgba(255,45,110,0.5)'})` }}
+              style={{ filter: `drop-shadow(0 0 4px ${up ? 'rgba(39,209,124,0.5)' : 'rgba(240,70,104,0.5)'})` }}
             />
           );
         })}
-        <text x={zeroX + 4} y={10} fontSize="8" fill="#5d7794">
+        <text x={zeroX + 4} y={10} fontSize="8" fill="#8a909a">
           0%
         </text>
-        <text x={w} y={h + 12} fontSize="8" fill="#5d7794" textAnchor="end">
+        <text x={w} y={h + 12} fontSize="8" fill="#8a909a" textAnchor="end">
           return over 50 trades
         </text>
       </g>

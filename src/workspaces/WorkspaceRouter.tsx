@@ -10,7 +10,7 @@ export function WorkspaceRouter() {
   const Active = def.Component;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       {/* Workspace header */}
       <div className="flex items-center gap-2.5 px-2.5 pt-2 pb-1">
         <span className="h-4 w-[2px] rounded-full" style={{ background: def.accent }} />
@@ -20,16 +20,18 @@ export function WorkspaceRouter() {
         </div>
       </div>
 
-      {/* Animated content swap */}
-      <div className="relative min-h-0 flex-1 px-2.5 pb-2.5 pt-1">
+      {/* Animated content swap — motion layer is absolutely positioned so the
+          workspace grid's h-full resolves against a definite height (fills the
+          viewport instead of collapsing to content). */}
+      <div className="relative min-h-0 flex-1">
         <AnimatePresence mode="wait">
           <motion.div
             key={workspace}
-            initial={{ opacity: 0, y: 12, filter: 'blur(6px)' }}
+            initial={{ opacity: 0, y: 10, filter: 'blur(5px)' }}
             animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
-            transition={{ duration: 0.32, ease: [0.2, 0.8, 0.2, 1] }}
-            className="h-full min-h-0"
+            exit={{ opacity: 0, y: -6, filter: 'blur(3px)' }}
+            transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}
+            className="absolute inset-0 px-2.5 pb-2.5 pt-1"
           >
             <Active />
           </motion.div>

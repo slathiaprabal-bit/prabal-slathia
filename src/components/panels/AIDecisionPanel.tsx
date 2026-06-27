@@ -6,25 +6,25 @@ import { AnimatedNumber } from '../ui/AnimatedNumber';
 import type { StrategyCandidate } from '../../types';
 
 const RISK_COLOR: Record<string, string> = {
-  LOW: '#16f5b0',
-  MEDIUM: '#3fd6f5',
-  HIGH: '#ffb020',
-  VERY_HIGH: '#ff2d6e',
+  LOW: '#27d17c',
+  MEDIUM: '#5aa9ff',
+  HIGH: '#f4b740',
+  VERY_HIGH: '#f04668',
 };
 
 const CAT_COLOR: Record<string, string> = {
-  theta: '#3fd6f5',
-  directional: '#c084fc',
-  volatility: '#ff7a59',
-  calendar: '#8b5cf6',
-  institutional: '#ffb020',
-  event: '#ff2d6e',
-  nifty: '#16f5b0',
+  theta: '#5aa9ff',
+  directional: '#c79bff',
+  volatility: '#f4b740',
+  calendar: '#c79bff',
+  institutional: '#f4b740',
+  event: '#f04668',
+  nifty: '#27d17c',
 };
 
 function DirectionalIcon({ d }: { d: string }) {
-  if (d === 'bull') return <TrendingUp size={11} className="text-[#16f5b0]" />;
-  if (d === 'bear') return <TrendingDown size={11} className="text-[#ff7a8a]" />;
+  if (d === 'bull') return <TrendingUp size={11} className="text-[#27d17c]" />;
+  if (d === 'bear') return <TrendingDown size={11} className="text-[#f04668]" />;
   return <Minus size={11} className="text-[color:var(--dim)]" />;
 }
 
@@ -32,10 +32,10 @@ function ScoreRing({ score }: { score: number }) {
   const r = 18;
   const circ = 2 * Math.PI * r;
   const color =
-    score >= 70 ? '#16f5b0'
-    : score >= 50 ? '#3fd6f5'
-    : score >= 35 ? '#ffb020'
-    : '#ff2d6e';
+    score >= 70 ? '#27d17c'
+    : score >= 50 ? '#5aa9ff'
+    : score >= 35 ? '#f4b740'
+    : '#f04668';
   return (
     <svg width={44} height={44} className="shrink-0">
       <circle cx={22} cy={22} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={3} />
@@ -61,8 +61,8 @@ function ScoreRing({ score }: { score: number }) {
 
 function StrategyCard({ s, rank, defaultOpen }: { s: StrategyCandidate; rank: number; defaultOpen: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
-  const catColor = CAT_COLOR[s.category] ?? '#3fd6f5';
-  const riskColor = RISK_COLOR[s.risk] ?? '#ffb020';
+  const catColor = CAT_COLOR[s.category] ?? '#5aa9ff';
+  const riskColor = RISK_COLOR[s.risk] ?? '#f4b740';
   const evPositive = s.ev >= 0;
 
   return (
@@ -80,7 +80,7 @@ function StrategyCard({ s, rank, defaultOpen }: { s: StrategyCandidate; rank: nu
       >
         {/* Rank badge */}
         <div
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[11px] font-black"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] text-[11px] font-black"
           style={{
             background: rank === 1 ? `linear-gradient(135deg,${catColor}40,${catColor}18)` : 'rgba(255,255,255,0.04)',
             color: rank === 1 ? catColor : 'var(--dim)',
@@ -99,13 +99,13 @@ function StrategyCard({ s, rank, defaultOpen }: { s: StrategyCandidate; rank: nu
           </div>
           <div className="flex items-center gap-2">
             <span
-              className="rounded px-1.5 py-0.5 text-[8px] font-semibold tracking-wider"
+              className="rounded-[4px] px-1.5 py-0.5 text-[8px] font-semibold tracking-wider"
               style={{ background: `${catColor}18`, color: catColor }}
             >
               {s.category.toUpperCase()}
             </span>
             <span
-              className="rounded px-1.5 py-0.5 text-[8px] font-semibold tracking-wider"
+              className="rounded-[4px] px-1.5 py-0.5 text-[8px] font-semibold tracking-wider"
               style={{ background: `${riskColor}18`, color: riskColor }}
             >
               {s.risk.replace('_', ' ')} RISK
@@ -116,7 +116,7 @@ function StrategyCard({ s, rank, defaultOpen }: { s: StrategyCandidate; rank: nu
         {/* EV */}
         <div className="text-right shrink-0">
           <div className="eyebrow text-[8px]">EV/LOT</div>
-          <div className="mono text-sm font-bold" style={{ color: evPositive ? '#16f5b0' : '#ff7a8a' }}>
+          <div className="mono text-sm font-bold" style={{ color: evPositive ? '#27d17c' : '#f04668' }}>
             {evPositive ? '+' : ''}
             <AnimatedNumber value={s.ev} format={(v) => `₹${Math.abs(v).toFixed(0)}`} />
           </div>
@@ -143,14 +143,14 @@ function StrategyCard({ s, rank, defaultOpen }: { s: StrategyCandidate; rank: nu
               {/* Key metrics grid */}
               <div className="grid grid-cols-3 gap-2 pt-2.5">
                 {[
-                  { l: 'POP', v: `${s.pop.toFixed(0)}%`, c: '#3fd6f5' },
-                  { l: 'MAX GAIN', v: `₹${(s.maxGain / 1000).toFixed(1)}k`, c: '#16f5b0' },
-                  { l: 'MAX LOSS', v: `₹${(s.maxLoss / 1000).toFixed(1)}k`, c: '#ff7a8a' },
-                  { l: 'CONFIDENCE', v: `${s.confidence.toFixed(0)}%`, c: '#c084fc' },
-                  { l: 'R:R RATIO', v: s.rrRatio.toFixed(2), c: '#ffb020' },
+                  { l: 'POP', v: `${s.pop.toFixed(0)}%`, c: '#5aa9ff' },
+                  { l: 'MAX GAIN', v: `₹${(s.maxGain / 1000).toFixed(1)}k`, c: '#27d17c' },
+                  { l: 'MAX LOSS', v: `₹${(s.maxLoss / 1000).toFixed(1)}k`, c: '#f04668' },
+                  { l: 'CONFIDENCE', v: `${s.confidence.toFixed(0)}%`, c: '#c79bff' },
+                  { l: 'R:R RATIO', v: s.rrRatio.toFixed(2), c: '#f4b740' },
                   { l: 'CATEGORY', v: s.category.slice(0,6).toUpperCase(), c: catColor },
                 ].map(({ l, v, c }) => (
-                  <div key={l} className="rounded-lg bg-white/[0.03] px-2 py-1.5">
+                  <div key={l} className="cell px-2 py-1.5">
                     <div className="eyebrow text-[8px] mb-0.5">{l}</div>
                     <div className="mono text-xs font-bold" style={{ color: c }}>{v}</div>
                   </div>
@@ -161,12 +161,12 @@ function StrategyCard({ s, rank, defaultOpen }: { s: StrategyCandidate; rank: nu
               <div>
                 <div className="flex justify-between text-[9px] mb-1">
                   <span className="eyebrow">PROBABILITY OF PROFIT</span>
-                  <span className="mono text-[#3fd6f5] font-semibold">{s.pop.toFixed(0)}%</span>
+                  <span className="mono text-[#5aa9ff] font-semibold">{s.pop.toFixed(0)}%</span>
                 </div>
                 <div className="h-1.5 w-full rounded-full bg-white/[0.05] overflow-hidden">
                   <motion.div
                     className="h-full rounded-full"
-                    style={{ background: 'linear-gradient(90deg,#8b5cf6,#3fd6f5,#16f5b0)' }}
+                    style={{ background: 'linear-gradient(90deg,#c79bff,#5aa9ff,#27d17c)' }}
                     initial={{ width: 0 }}
                     animate={{ width: `${s.pop}%` }}
                     transition={{ duration: 0.7, ease: 'easeOut' }}
@@ -210,7 +210,7 @@ export function AIDecisionPanel() {
   return (
     <div className="flex h-full flex-col gap-3 overflow-auto">
       {/* Market condition banner */}
-      <div className="rounded-[6px] border border-white/5 bg-white/[0.02] px-3 py-2">
+      <div className="cell px-3 py-2">
         <div className="eyebrow text-[8px] mb-1">MARKET CONDITION · {totalScored} STRATEGIES SCORED</div>
         <div className="text-[10px] text-[color:var(--text)] leading-snug">{marketCondition}</div>
       </div>
@@ -220,16 +220,16 @@ export function AIDecisionPanel() {
         className="flex items-center gap-2.5 rounded-[6px] px-3 py-2.5"
         style={{
           background: decision === 'TRADE'
-            ? 'linear-gradient(135deg, rgba(22,245,176,0.08), rgba(22,245,176,0.03))'
-            : 'linear-gradient(135deg, rgba(255,45,110,0.08), rgba(255,45,110,0.03))',
-          border: `1px solid ${decision === 'TRADE' ? 'rgba(22,245,176,0.2)' : 'rgba(255,45,110,0.2)'}`,
+            ? 'linear-gradient(135deg, rgba(39,209,124,0.08), rgba(39,209,124,0.03))'
+            : 'linear-gradient(135deg, rgba(240,70,104,0.08), rgba(240,70,104,0.03))',
+          border: `1px solid ${decision === 'TRADE' ? 'rgba(39,209,124,0.2)' : 'rgba(240,70,104,0.2)'}`,
         }}
       >
         {decision === 'TRADE'
-          ? <Shield size={16} className="text-[#16f5b0]" />
-          : <AlertTriangle size={16} className="text-[#ff2d6e]" />}
+          ? <Shield size={16} className="text-[#27d17c]" />
+          : <AlertTriangle size={16} className="text-[#f04668]" />}
         <div className="flex-1">
-          <div className="text-xs font-bold" style={{ color: decision === 'TRADE' ? '#16f5b0' : '#ff2d6e' }}>
+          <div className="text-xs font-bold" style={{ color: decision === 'TRADE' ? '#27d17c' : '#f04668' }}>
             {decision === 'TRADE' ? 'GO — CONDITIONS FAVOURABLE' : 'STAND ASIDE — PROTECT CAPITAL'}
           </div>
           {trade && (

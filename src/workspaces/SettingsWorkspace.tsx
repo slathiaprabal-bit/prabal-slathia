@@ -3,10 +3,10 @@ import { useTerminal } from '../store';
 import { WORKSPACES } from './registry';
 
 const CONN_LABEL: Record<string, { text: string; color: string }> = {
-  live: { text: 'LIVE · WebSocket streaming', color: '#16f5b0' },
-  mock: { text: 'DEMO · simulated feed', color: '#ffb020' },
-  error: { text: 'ERROR · backend traceback', color: '#ff2d6e' },
-  connecting: { text: 'CONNECTING…', color: '#3fd6f5' },
+  live: { text: 'LIVE · WebSocket streaming', color: '#27d17c' },
+  mock: { text: 'DEMO · simulated feed', color: '#f4b740' },
+  error: { text: 'ERROR · backend traceback', color: '#f04668' },
+  connecting: { text: 'CONNECTING…', color: '#5aa9ff' },
 };
 
 export function SettingsWorkspace() {
@@ -17,8 +17,8 @@ export function SettingsWorkspace() {
   const wsUrl = `ws://${location.hostname}:8000/ws/stream`;
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-12 grid-rows-6 gap-2.5">
-      <Panel title="Connection" accent="#3fd6f5" className="col-start-1 col-span-6 row-start-1 row-span-3" delay={0.04}>
+    <div className="grid h-full min-h-0 grid-cols-12 grid-rows-6 gap-2">
+      <Panel title="Connection" accent="#5aa9ff" className="col-start-1 col-span-6 row-start-1 row-span-3" delay={0.04}>
         <div className="flex h-full flex-col justify-center gap-2.5">
           <Row label="STATUS">
             <span className="flex items-center gap-2">
@@ -35,14 +35,14 @@ export function SettingsWorkspace() {
           </Row>
           <button
             onClick={() => location.reload()}
-            className="mt-1 rounded-lg border border-[#3fd6f5]/25 bg-[#3fd6f5]/10 py-2 text-xs font-bold tracking-widest text-[#3fd6f5] transition hover:bg-[#3fd6f5]/20"
+            className="mt-1 rounded-[6px] border border-[#5aa9ff]/25 bg-[#5aa9ff]/10 py-2 text-xs font-bold tracking-widest text-[#5aa9ff] transition hover:bg-[#5aa9ff]/20"
           >
             RECONNECT TERMINAL
           </button>
         </div>
       </Panel>
 
-      <Panel title="Appearance" accent="#c084fc" className="col-start-7 col-span-6 row-start-1 row-span-3" delay={0.08}>
+      <Panel title="Appearance" accent="#c79bff" className="col-start-7 col-span-6 row-start-1 row-span-3" delay={0.08}>
         <div className="flex h-full flex-col justify-center gap-2">
           <div className="eyebrow mb-1">WORKSPACE ACCENTS</div>
           <div className="grid grid-cols-2 gap-2">
@@ -56,7 +56,7 @@ export function SettingsWorkspace() {
         </div>
       </Panel>
 
-      <Panel title="Workspaces" accent="#16f5b0" className="col-start-1 col-span-12 row-start-4 row-span-3" delay={0.12}>
+      <Panel title="Workspaces" accent="#27d17c" className="col-start-1 col-span-12 row-start-4 row-span-3" delay={0.12}>
         <div className="grid h-full grid-cols-4 content-center gap-2.5">
           {WORKSPACES.map((w) => (
             <button
@@ -79,7 +79,7 @@ export function SettingsWorkspace() {
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2">
+    <div className="flex items-center justify-between cell px-3 py-2">
       <span className="eyebrow">{label}</span>
       {children}
     </div>

@@ -5,10 +5,10 @@ import { MacroPanel } from '../components/panels/MacroPanel';
 // workspace (silver, copper, repo, inflation, GDP, economic calendar, regime).
 export function MacroIntelligence() {
   return (
-    <div className="grid h-full min-h-0 grid-cols-12 grid-rows-1 gap-2.5">
+    <div className="grid h-full min-h-0 grid-cols-12 grid-rows-1 gap-2">
       <Panel
         title="Macro Intelligence"
-        accent="#c084fc"
+        accent="#c79bff"
         className="col-span-12 row-span-1"
         delay={0.04}
       >

@@ -47,14 +47,14 @@ export function OptionChainHeatmap() {
                   className="h-full rounded-l"
                   animate={{ width: `${pe * 100}%` }}
                   transition={{ duration: 0.5 }}
-                  style={{ background: `rgba(255,45,110,${0.25 + pe * 0.6})`, boxShadow: pe > 0.6 ? '0 0 8px rgba(255,45,110,0.5)' : 'none' }}
+                  style={{ background: `rgba(240,70,104,${0.25 + pe * 0.6})`, boxShadow: pe > 0.6 ? '0 0 8px rgba(240,70,104,0.5)' : 'none' }}
                 />
               </div>
               <span
                 className={`mono w-12 rounded px-1 text-center text-[11px] ${
                   isATM ? 'bg-white/10 font-bold text-white' : 'text-[color:var(--dim)]'
                 }`}
-                style={isMaxPain ? { color: '#ffd166', textShadow: '0 0 8px rgba(255,209,102,0.6)' } : {}}
+                style={isMaxPain ? { color: '#f4b740', textShadow: '0 0 8px rgba(255,209,102,0.6)' } : {}}
               >
                 {r.strike}
               </span>
@@ -64,7 +64,7 @@ export function OptionChainHeatmap() {
                   className="h-full rounded-r"
                   animate={{ width: `${ce * 100}%` }}
                   transition={{ duration: 0.5 }}
-                  style={{ background: `rgba(63,214,245,${0.25 + ce * 0.6})`, boxShadow: ce > 0.6 ? '0 0 8px rgba(63,214,245,0.5)' : 'none' }}
+                  style={{ background: `rgba(90,169,255,${0.25 + ce * 0.6})`, boxShadow: ce > 0.6 ? '0 0 8px rgba(90,169,255,0.5)' : 'none' }}
                 />
               </div>
             </button>
@@ -77,7 +77,7 @@ export function OptionChainHeatmap() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="mt-1 overflow-hidden rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2"
+            className="mt-1 overflow-hidden rounded-[6px] border border-white/10 bg-white/[0.03] px-3 py-2"
           >
             <StrikeDetail row={selectedRow} />
           </motion.div>
