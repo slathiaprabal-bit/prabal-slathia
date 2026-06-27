@@ -8,6 +8,7 @@ outputs for the React/Three.js front end — no trading logic lives here.
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timezone
 
 import numpy as np

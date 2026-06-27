@@ -20,7 +20,6 @@ export function RegimePanel() {
         style={{ background: `radial-gradient(80% 60% at 50% 0%, ${th.glow}, transparent 70%)` }}
       />
       <div className="relative">
-        <div className="eyebrow mb-1">Market Regime</div>
         <AnimatePresence mode="wait">
           <motion.div
             key={reg.state}
