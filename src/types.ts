@@ -126,6 +126,28 @@ export interface Trade {
   rejectReasons: string[];
 }
 
+export interface History {
+  returns: number[]; // daily log returns (%)
+  vix: number[];
+}
+
+export interface BacktestStats {
+  totalReturnPct: number | null;
+  totalPnl: number | null;
+  trades: number | null;
+  winRatePct: number | null;
+  profitFactor: number | null;
+  maxDrawdownPct: number | null;
+  sharpe: number | null;
+  finalEquity: number | null;
+  sourceCapital: number | null;
+}
+
+export interface Backtest {
+  stats: BacktestStats;
+  equity: { equity: number; drawdown: number }[];
+}
+
 export interface Snapshot {
   ts: string;
   source: string;
@@ -143,6 +165,8 @@ export interface Snapshot {
   montecarlo: MonteCarlo;
   trade: Trade;
   strategies: StrategyRanking;
+  history?: History;
+  backtest?: Backtest;
 }
 
 export interface StrategyCandidate {
@@ -168,6 +192,18 @@ export interface StrategyRanking {
   marketCondition: string;
   allScores: Record<string, number>;
 }
+
+// 8 institutional workspaces — the sidebar navigation contract.
+export type WorkspaceId =
+  | 'volatility'
+  | 'strategy'
+  | 'risk'
+  | 'breadth'
+  | 'macro'
+  | 'portfolio'
+  | 'journal'
+  | 'research'
+  | 'settings';
 
 export type ConnState = 'connecting' | 'live' | 'mock' | 'error';
 

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Snapshot, ConnState, BackendError } from './types';
+import type { Snapshot, ConnState, BackendError, WorkspaceId } from './types';
 import { mockSnapshot } from './mock';
 
 const WS_URL =
@@ -11,9 +11,11 @@ interface TerminalState {
   prev: Snapshot | null;
   conn: ConnState;
   error: BackendError | null;
+  workspace: WorkspaceId;
   setSnap: (s: Snapshot) => void;
   setConn: (c: ConnState) => void;
   setError: (e: BackendError | null) => void;
+  setWorkspace: (w: WorkspaceId) => void;
 }
 
 export const useTerminal = create<TerminalState>((set, get) => ({
@@ -21,9 +23,13 @@ export const useTerminal = create<TerminalState>((set, get) => ({
   prev: null,
   conn: 'connecting',
   error: null,
+  // Navigation lives in the store so switching workspaces never tears down
+  // the single live WebSocket connection (data + feed are global).
+  workspace: 'volatility',
   setSnap: (s) => set({ snap: s, prev: get().snap }),
   setConn: (c) => set({ conn: c }),
   setError: (e) => set({ error: e }),
+  setWorkspace: (w) => set({ workspace: w }),
 }));
 
 // Strategy: populate with demo data IMMEDIATELY so the terminal is never blank,

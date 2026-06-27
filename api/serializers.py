@@ -129,6 +129,74 @@ def montecarlo(cfg: Config, probe: Probe | None = None) -> dict:
     }
 
 
+# Downsampled price/vol history for the frontend Hidden-Markov regime engine.
+# Memoised + refreshed every `every` calls so the 2s stream stays light.
+_HIST_CACHE: dict = {"n": 0, "data": None}
+
+
+def _history(cfg: Config, every: int = 30) -> dict:
+    c = _HIST_CACHE
+    if c["data"] is None or c["n"] % every == 0:
+        try:
+            from quant_engine.data import get_market_data
+            df, _ = get_market_data(cfg)
+            close = df["Close"].to_numpy(dtype=float)
+            rets = np.diff(np.log(close)) * 100.0
+            vix = (df["VIX"].to_numpy(dtype=float)[1:] if "VIX" in df.columns
+                   else np.full(len(rets), float("nan")))
+            n = min(len(rets), 180)
+            c["data"] = {
+                "returns": [round(float(x), 3) for x in rets[-n:]],
+                "vix": [round(float(x), 2) for x in vix[-n:]],
+            }
+        except Exception:
+            c["data"] = {"returns": [], "vix": []}
+    c["n"] += 1
+    return c["data"]
+
+
+# Historical backtest result (equity curve + performance) for the frontend
+# backtesting view. Memoised — the backtest is historical, not tick-varying.
+_BT_CACHE: dict = {"n": 0, "data": None}
+
+
+def _backtest(cfg: Config, every: int = 60) -> dict:
+    c = _BT_CACHE
+    if c["data"] is None or c["n"] % every == 0:
+        try:
+            from quant_engine.engine import Backtest
+            from quant_engine.data import get_market_data
+            df, _ = get_market_data(cfg)
+            bt = Backtest(cfg).run(df)
+            perf = bt.performance()
+            eq = bt.equity_df()
+            n = len(eq)
+            step = max(1, n // 120)
+            curve = [
+                {"equity": round(float(eq.iloc[k]["Equity"]), 0),
+                 "drawdown": round(float(eq.iloc[k].get("Drawdown", 0.0)), 4)}
+                for k in range(0, n, step)
+            ]
+            c["data"] = {
+                "stats": {
+                    "totalReturnPct": perf.get("total_return_pct"),
+                    "totalPnl": perf.get("total_pnl"),
+                    "trades": perf.get("trades"),
+                    "winRatePct": perf.get("win_rate_pct"),
+                    "profitFactor": perf.get("profit_factor"),
+                    "maxDrawdownPct": perf.get("max_drawdown_pct"),
+                    "sharpe": perf.get("sharpe"),
+                    "finalEquity": perf.get("final_equity"),
+                    "sourceCapital": perf.get("source_capital"),
+                },
+                "equity": curve,
+            }
+        except Exception:
+            c["data"] = {"stats": {}, "equity": []}
+    c["n"] += 1
+    return c["data"]
+
+
 def build_snapshot(cfg: Config, mc: dict | None = None,
                    probe: Probe | None = None) -> dict:
     """The full live snapshot consumed by the terminal."""
@@ -292,4 +360,6 @@ def build_snapshot(cfg: Config, mc: dict | None = None,
         "montecarlo": mc or {},
         "trade": trade,
         "strategies": strategies,
+        "history": _history(cfg),
+        "backtest": _backtest(cfg),
     }

@@ -21,18 +21,18 @@ export function ErrorBanner() {
         className="absolute left-1/2 top-14 z-50 w-[min(840px,92vw)] -translate-x-1/2"
       >
         <div
-          className="glass overflow-hidden border-[#ff2d6e]/40"
-          style={{ boxShadow: '0 0 40px rgba(255,45,110,0.18)' }}
+          className="glass overflow-hidden border-[#f04668]/40"
+          style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.6)' }}
         >
           <div className="flex items-start gap-3 px-4 py-3">
-            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-[#ff2d6e]" />
+            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-[#f04668]" />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-[#ff7a8a]">
+                <span className="text-sm font-bold text-[#f04668]">
                   Backend error · {error.type ?? 'Error'}
                 </span>
                 {error.failing_stage && (
-                  <span className="mono rounded bg-[#ff2d6e]/15 px-1.5 py-0.5 text-[10px] text-[#ff7a8a]">
+                  <span className="mono rounded-[4px] bg-[#f04668]/15 px-1.5 py-0.5 text-[10px] text-[#f04668]">
                     stage: {error.failing_stage}
                   </span>
                 )}
@@ -41,7 +41,7 @@ export function ErrorBanner() {
                 {error.error}
               </div>
               {error.origin && (
-                <div className="mono mt-1 text-[11px] text-[#ffb020] break-all">
+                <div className="mono mt-1 text-[11px] text-[#f4b740] break-all">
                   ↳ {error.origin}
                 </div>
               )}
@@ -69,7 +69,7 @@ export function ErrorBanner() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="mono mt-2 max-h-52 overflow-auto rounded-lg bg-black/40 p-3 text-[10px] leading-relaxed text-[#9fb6c9]"
+                    className="mono mt-2 max-h-52 overflow-auto rounded-[6px] bg-black/40 p-3 text-[10px] leading-relaxed text-[#9fb6c9]"
                   >
                     {error.traceback}
                   </motion.pre>
