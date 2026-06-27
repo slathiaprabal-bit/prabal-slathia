@@ -80,7 +80,7 @@ function Bar({ value, color }: { value: number; color: string }) {
 
 function Stat({ label, value, accent, wide }: { label: string; value: string; accent: string; wide?: boolean }) {
   return (
-    <div className={`flex flex-col justify-center rounded-xl border border-white/5 bg-white/[0.02] p-3 ${wide ? 'col-span-2' : ''}`}>
+    <div className={`flex flex-col justify-center rounded-[6px] border border-white/5 bg-white/[0.02] p-3 ${wide ? 'col-span-2' : ''}`}>
       <div className="eyebrow">{label}</div>
       <div className="mono mt-1 text-2xl font-bold" style={{ color: accent }}>{value}</div>
     </div>
@@ -89,7 +89,7 @@ function Stat({ label, value, accent, wide }: { label: string; value: string; ac
 
 function Levels({ label, values, accent }: { label: string; values: number[]; accent: string }) {
   return (
-    <div className="flex flex-col justify-center rounded-xl border border-white/5 bg-white/[0.02] p-3">
+    <div className="flex flex-col justify-center rounded-[6px] border border-white/5 bg-white/[0.02] p-3">
       <div className="eyebrow">{label}</div>
       <div className="mt-1 flex flex-wrap gap-1.5">
         {values.length ? (

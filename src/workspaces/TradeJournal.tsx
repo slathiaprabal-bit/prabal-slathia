@@ -34,7 +34,7 @@ export function TradeJournal() {
             label="ENTRY ZONE"
             value={trade?.shortPut && trade?.shortCall ? `${trade.shortPut} – ${trade.shortCall}` : '—'}
           />
-          <div className="mt-1 rounded-xl border border-white/5 bg-white/[0.02] p-3">
+          <div className="mt-1 rounded-[6px] border border-white/5 bg-white/[0.02] p-3">
             <div className="eyebrow mb-1.5">DISCIPLINE</div>
             <ul className="space-y-1 text-[11px] leading-snug text-[color:var(--dim)]">
               <li>▸ Exit at take-profit; never widen the stop.</li>

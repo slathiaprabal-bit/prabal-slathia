@@ -119,7 +119,7 @@ export function MacroPanel() {
         {items.map(({ label, value, change, color }) => (
           <div
             key={label}
-            className="rounded-xl border border-white/5 bg-white/[0.02] p-2.5"
+            className="rounded-[6px] border border-white/5 bg-white/[0.02] p-2.5"
           >
             <div className="eyebrow text-[8px] mb-1">{label}</div>
             <div className="mono text-sm font-bold" style={{ color }}>
@@ -131,7 +131,7 @@ export function MacroPanel() {
       </div>
 
       {/* FII / DII flow */}
-      <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
+      <div className="rounded-[6px] border border-white/5 bg-white/[0.02] p-3">
         <div className="eyebrow text-[9px] mb-2">INSTITUTIONAL FLOW (₹ Cr)</div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -172,7 +172,7 @@ export function MacroPanel() {
       </div>
 
       {/* Market breadth */}
-      <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
+      <div className="rounded-[6px] border border-white/5 bg-white/[0.02] p-3">
         <div className="eyebrow text-[9px] mb-2">MARKET BREADTH</div>
         <div className="flex items-center gap-3">
           <div>

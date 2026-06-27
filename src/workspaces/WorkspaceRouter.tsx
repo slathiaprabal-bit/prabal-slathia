@@ -12,16 +12,16 @@ export function WorkspaceRouter() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Workspace header */}
-      <div className="flex items-center gap-3 px-3 pt-3 pb-1">
-        <span className="h-5 w-[3px] rounded-full" style={{ background: def.accent, boxShadow: `0 0 12px ${def.accent}` }} />
-        <div>
-          <h1 className="text-sm font-extrabold tracking-tight text-white">{def.label}</h1>
-          <div className="text-[10px] tracking-wide text-[color:var(--dim)]">{def.subtitle}</div>
+      <div className="flex items-center gap-2.5 px-2.5 pt-2 pb-1">
+        <span className="h-4 w-[2px] rounded-full" style={{ background: def.accent }} />
+        <div className="flex items-baseline gap-2.5">
+          <h1 className="text-[13px] font-bold tracking-tight text-white">{def.label}</h1>
+          <div className="text-[9.5px] tracking-wide text-[color:var(--dim)]">{def.subtitle}</div>
         </div>
       </div>
 
       {/* Animated content swap */}
-      <div className="relative min-h-0 flex-1 p-3 pt-1.5">
+      <div className="relative min-h-0 flex-1 px-2.5 pb-2.5 pt-1">
         <AnimatePresence mode="wait">
           <motion.div
             key={workspace}

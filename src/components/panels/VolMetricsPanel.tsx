@@ -59,7 +59,7 @@ export function VolMetricsPanel() {
   return (
     <div className="flex h-full flex-col gap-3 overflow-auto">
       {/* IV metrics */}
-      <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 flex flex-col gap-2.5">
+      <div className="rounded-[6px] border border-white/5 bg-white/[0.02] p-3 flex flex-col gap-2.5">
         <div className="eyebrow text-[9px] mb-0.5">VOLATILITY METRICS</div>
 
         <MetricRow
@@ -93,7 +93,7 @@ export function VolMetricsPanel() {
       </div>
 
       {/* Expected move */}
-      <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 flex flex-col gap-2.5">
+      <div className="rounded-[6px] border border-white/5 bg-white/[0.02] p-3 flex flex-col gap-2.5">
         <div className="eyebrow text-[9px] mb-0.5">EXPECTED MOVE</div>
         <MetricRow
           label="EM (EXPIRY) ±"
@@ -130,7 +130,7 @@ export function VolMetricsPanel() {
 
       {/* Positioning */}
       {pos && (
-        <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 flex flex-col gap-2.5">
+        <div className="rounded-[6px] border border-white/5 bg-white/[0.02] p-3 flex flex-col gap-2.5">
           <div className="eyebrow text-[9px] mb-0.5">POSITIONING</div>
           <MetricRow
             label="PCR (OI)"
@@ -163,7 +163,7 @@ export function VolMetricsPanel() {
 
       {/* Risk */}
       {risk && (
-        <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 flex flex-col gap-2">
+        <div className="rounded-[6px] border border-white/5 bg-white/[0.02] p-3 flex flex-col gap-2">
           <div className="eyebrow text-[9px] mb-0.5">RISK METRICS</div>
           <MetricRow
             label="PORTFOLIO HEAT"

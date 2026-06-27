@@ -18,22 +18,23 @@ interface Props {
   xLabel?: string;
   ghosts?: Ghost[]; // faint comparison curves (e.g. week / month ago)
   dots?: boolean;
+  pointLabels?: (v: number) => string; // value labels above each point
 }
 
 // Reusable elegant line chart — thin stroke, subtle gradient fill, clean axes.
-export function LineChart({ x, y, color = '#27d17c', marker, yLabel, xLabel, ghosts, dots }: Props) {
+export function LineChart({ x, y, color = '#27d17c', marker, yLabel, xLabel, ghosts, dots, pointLabels }: Props) {
   const { ref, width, height } = useSize<HTMLDivElement>();
   return (
     <div ref={ref} className="h-full w-full">
       {width > 0 && height > 0 && x.length > 1 && (
-        <Inner x={x} y={y} width={width} height={height} color={color} marker={marker} yLabel={yLabel} xLabel={xLabel} ghosts={ghosts} dots={dots} />
+        <Inner x={x} y={y} width={width} height={height} color={color} marker={marker} yLabel={yLabel} xLabel={xLabel} ghosts={ghosts} dots={dots} pointLabels={pointLabels} />
       )}
     </div>
   );
 }
 
 function Inner({
-  x, y, width, height, color, marker, yLabel, xLabel, ghosts, dots,
+  x, y, width, height, color, marker, yLabel, xLabel, ghosts, dots, pointLabels,
 }: Props & { width: number; height: number }) {
   const pad = { t: 10, r: 12, b: 18, l: 30 };
   const w = width - pad.l - pad.r;
@@ -86,8 +87,17 @@ function Inner({
           transition={{ duration: 0.7, ease: 'easeOut' }}
         />
         {dots && pts.map((p, i) => (
-          <circle key={i} cx={p[0]} cy={p[1]} r={2} fill={color} />
+          <circle key={i} cx={p[0]} cy={p[1]} r={2.2} fill={color} stroke="#000" strokeWidth={0.5} />
         ))}
+        {pointLabels && pts.map((p, i) => {
+          const stride = Math.max(1, Math.ceil(pts.length / 6));
+          if (i % stride !== 0 && i !== pts.length - 1) return null;
+          return (
+            <text key={`l${i}`} x={p[0]} y={p[1] - 7} fontSize="8" fill="#c9ced6" textAnchor="middle" className="mono">
+              {pointLabels(y[i])}
+            </text>
+          );
+        })}
         {marker !== undefined && marker >= Math.min(...x) && marker <= Math.max(...x) && (
           <line x1={xs(marker)} x2={xs(marker)} y1={0} y2={h} stroke="rgba(255,255,255,0.18)" strokeDasharray="3 3" />
         )}

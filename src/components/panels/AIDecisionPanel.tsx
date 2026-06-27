@@ -70,7 +70,7 @@ function StrategyCard({ s, rank, defaultOpen }: { s: StrategyCandidate; rank: nu
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: rank * 0.08 }}
-      className="rounded-xl border border-white/6 bg-white/[0.025] overflow-hidden"
+      className="rounded-[6px] border border-white/6 bg-white/[0.025] overflow-hidden"
       style={{ borderColor: rank === 1 ? `${catColor}28` : 'rgba(255,255,255,0.06)' }}
     >
       {/* Header */}
@@ -210,14 +210,14 @@ export function AIDecisionPanel() {
   return (
     <div className="flex h-full flex-col gap-3 overflow-auto">
       {/* Market condition banner */}
-      <div className="rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2">
+      <div className="rounded-[6px] border border-white/5 bg-white/[0.02] px-3 py-2">
         <div className="eyebrow text-[8px] mb-1">MARKET CONDITION · {totalScored} STRATEGIES SCORED</div>
         <div className="text-[10px] text-[color:var(--text)] leading-snug">{marketCondition}</div>
       </div>
 
       {/* GO / NO-GO badge */}
       <div
-        className="flex items-center gap-2.5 rounded-xl px-3 py-2.5"
+        className="flex items-center gap-2.5 rounded-[6px] px-3 py-2.5"
         style={{
           background: decision === 'TRADE'
             ? 'linear-gradient(135deg, rgba(22,245,176,0.08), rgba(22,245,176,0.03))'

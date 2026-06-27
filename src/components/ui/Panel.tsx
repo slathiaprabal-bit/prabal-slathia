@@ -27,15 +27,15 @@ export function Panel({
       className={`glass glass-hover relative flex min-h-0 flex-col overflow-hidden ${className}`}
     >
       {title && (
-        <header className="flex items-center justify-between border-b border-[color:var(--line-soft)] px-3.5 py-2">
+        <header className="flex items-center justify-between border-b border-[color:var(--line-soft)] px-3 py-1.5">
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-[2px] rounded-full" style={{ background: accent }} />
-            <h2 className="section-title">{title}</h2>
+            <h2 className="section-title text-[10px]">{title}</h2>
           </div>
           {badge}
         </header>
       )}
-      <div className="min-h-0 flex-1 px-3.5 py-3">{children}</div>
+      <div className="min-h-0 flex-1 px-3 py-2.5">{children}</div>
     </motion.section>
   );
 }

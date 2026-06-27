@@ -34,7 +34,7 @@ export function TopBar() {
   const regColor = regUp ? 'var(--pos)' : regDown ? 'var(--neg)' : 'var(--gold)';
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-[color:var(--line)] bg-[color:var(--bg1)] px-4">
+    <header className="flex h-12 shrink-0 items-center justify-between border-b border-[color:var(--line)] bg-[color:var(--bg1)] px-3.5">
       {/* Brand */}
       <div className="flex items-center gap-5">
         <div className="flex items-baseline gap-2">

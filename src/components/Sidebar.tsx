@@ -22,7 +22,7 @@ export function Sidebar() {
   return (
     <aside className="sidebar flex flex-col">
       {/* Navigation */}
-      <nav className="flex flex-1 flex-col gap-0.5 p-2.5">
+      <nav className="flex flex-1 flex-col gap-0.5 p-2">
         {WORKSPACES.map(({ id, icon: Icon, label }) => {
           const active = workspace === id;
           return (
@@ -31,7 +31,7 @@ export function Sidebar() {
               type="button"
               onClick={() => setWorkspace(id)}
               whileTap={{ scale: 0.985 }}
-              className="nav-item relative flex items-center gap-3 px-3 py-2.5 text-left"
+              className="nav-item relative flex items-center gap-2.5 px-2.5 py-2 text-left"
               style={{
                 background: active ? 'rgba(244,183,64,0.07)' : undefined,
                 borderColor: active ? 'rgba(244,183,64,0.22)' : undefined,

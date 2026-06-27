@@ -47,8 +47,8 @@ export function SettingsWorkspace() {
           <div className="eyebrow mb-1">WORKSPACE ACCENTS</div>
           <div className="grid grid-cols-2 gap-2">
             {WORKSPACES.map((w) => (
-              <div key={w.id} className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-2">
-                <span className="h-3 w-3 rounded-full" style={{ background: w.accent, boxShadow: `0 0 10px ${w.accent}` }} />
+              <div key={w.id} className="cell flex items-center gap-2 px-2.5 py-2">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: w.accent }} />
                 <span className="text-[11px] font-semibold text-[color:var(--text)]">{w.label}</span>
               </div>
             ))}
@@ -62,7 +62,7 @@ export function SettingsWorkspace() {
             <button
               key={w.id}
               onClick={() => setWorkspace(w.id)}
-              className="sidebar-item flex flex-col items-start gap-1 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-left"
+              className="nav-item flex flex-col items-start gap-1 border border-[color:var(--line)] bg-[color:var(--panel)] p-3 text-left"
             >
               <span className="flex items-center gap-2">
                 <w.icon size={15} style={{ color: w.accent }} />

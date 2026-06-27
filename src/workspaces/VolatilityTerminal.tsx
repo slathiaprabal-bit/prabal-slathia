@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Maximize2, Box, Grid3x3 } from 'lucide-react';
 import { useTerminal } from '../store';
 import { Panel } from '../components/ui/Panel';
-import { VolMetricsPanel } from '../components/panels/VolMetricsPanel';
+import { VolMetricsGrid } from '../components/panels/VolMetricsGrid';
 import { IVRegimeDonut } from '../components/panels/IVRegimeDonut';
 import { LineChart } from '../components/charts/LineChart';
 
@@ -15,40 +15,38 @@ export function VolatilityTerminal() {
   const [wire, setWire] = useState(false);
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-12 grid-rows-6 gap-2.5">
+    <div className="grid h-full min-h-0 grid-cols-12 grid-rows-6 gap-2">
       {/* ── 3D VOL SURFACE HERO ── */}
       <section className="glass relative col-start-1 col-span-8 row-start-1 row-span-4 overflow-hidden">
-        <div className="pointer-events-none absolute left-4 top-3 z-10">
+        <div className="pointer-events-none absolute left-3.5 top-2.5 z-10">
           <div className="section-title">3D Volatility Surface</div>
-          <div className="mt-0.5 text-[10px] tracking-wide text-[color:var(--dim)]">NIFTY · 29 MAY 2025 EXPIRY</div>
+          <div className="mt-0.5 text-[9px] tracking-wide text-[color:var(--dim)]">NIFTY · 29 MAY 2025 EXPIRY</div>
         </div>
 
-        {/* View toggles */}
-        <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
-          <Seg active={!wire} onClick={() => setWire(false)} icon={<Box size={12} />} label="Surface" />
-          <Seg active={wire} onClick={() => setWire(true)} icon={<Grid3x3 size={12} />} label="Wireframe" />
-          <button className="nav-item flex h-7 w-7 items-center justify-center text-[color:var(--dim)] hover:text-[color:var(--text)]">
-            <Maximize2 size={12} />
+        <div className="absolute right-3 top-2.5 z-10 flex items-center gap-1">
+          <Seg active={!wire} onClick={() => setWire(false)} icon={<Box size={11} />} label="Surface" />
+          <Seg active={wire} onClick={() => setWire(true)} icon={<Grid3x3 size={11} />} label="Wireframe" />
+          <button className="nav-item flex h-6 w-6 items-center justify-center text-[color:var(--dim)] hover:text-[color:var(--text)]">
+            <Maximize2 size={11} />
           </button>
         </div>
 
         <SurfaceBadge />
 
-        <div className="pointer-events-none absolute bottom-3 left-4 z-10 flex gap-5 text-[8px] tracking-widest text-[color:var(--dim)]">
-          <span>X · STRIKE</span>
-          <span>Y · DAYS TO EXPIRY</span>
-          <span>Z · IMPLIED VOL %</span>
-        </div>
-        {/* Rainbow legend */}
-        <div className="pointer-events-none absolute right-4 bottom-3 z-10 flex flex-col items-end gap-1">
-          <div className="mb-0.5 text-[7px] tracking-wider text-[color:var(--dim)]">IV %</div>
-          <div className="h-20 w-2 rounded-full" style={{ background: 'linear-gradient(to bottom,#ff0030,#ff7000,#ffe000,#00e890,#00c8ff,#0055ff,#1a00d4)' }} />
-          <div className="flex flex-col items-end text-[7px] text-[color:var(--dim)]">
-            <span>HIGH</span><span className="mt-10">LOW</span>
+        {/* IV colour bar with ticks */}
+        <div className="pointer-events-none absolute right-3.5 top-1/2 z-10 flex -translate-y-1/2 items-center gap-1">
+          <div className="flex flex-col justify-between py-0.5 text-[7px] text-[color:var(--dim)]" style={{ height: 120 }}>
+            {[32, 24, 16, 8, 0].map((t) => <span key={t}>{t}</span>)}
           </div>
+          <div className="h-[120px] w-2 rounded-[2px]" style={{ background: 'linear-gradient(to bottom,#ff0030,#ff7000,#ffe000,#00e890,#00c8ff,#0055ff,#1a00d4)' }} />
+          <span className="text-[7px] tracking-wider text-[color:var(--dim)]">IV %</span>
         </div>
-        <div className="pointer-events-none absolute bottom-9 left-4 z-10 text-[8px] tracking-wide text-[color:var(--faint)]">
+
+        <div className="pointer-events-none absolute bottom-2.5 left-3.5 z-10 text-[8px] tracking-wide text-[color:var(--faint)]">
           Drag to rotate · Scroll to zoom · Right-click to pan
+        </div>
+        <div className="pointer-events-none absolute bottom-2.5 right-3.5 z-10 flex gap-3 text-[7px] tracking-widest text-[color:var(--dim)]">
+          <span>X · STRIKE</span><span>Y · DTE</span><span>Z · IV %</span>
         </div>
 
         <Suspense fallback={<CanvasFallback />}>
@@ -56,24 +54,29 @@ export function VolatilityTerminal() {
         </Suspense>
       </section>
 
-      {/* ── VOLATILITY METRICS (right rail) ── */}
-      <Panel title="Volatility Metrics" accent="var(--pos)" className="col-start-9 col-span-4 row-start-1 row-span-4" delay={0.06}>
-        <VolMetricsPanel />
+      {/* ── VOLATILITY METRICS (grid) ── */}
+      <Panel title="Volatility Metrics" accent="var(--pos)" className="col-start-9 col-span-4 row-start-1 row-span-2" delay={0.06}>
+        <VolMetricsGrid />
       </Panel>
 
       {/* ── VOLATILITY SMILE ── */}
-      <Panel title="Volatility Smile" accent="var(--gold)" className="col-start-1 col-span-4 row-start-5 row-span-2" delay={0.12}>
+      <Panel title="Volatility Smile" accent="var(--gold)" className="col-start-9 col-span-4 row-start-3 row-span-2" delay={0.1}>
         <SmileChart />
       </Panel>
 
       {/* ── TERM STRUCTURE ── */}
-      <Panel title="Term Structure" accent="var(--pos)" className="col-start-5 col-span-4 row-start-5 row-span-2" delay={0.16}>
+      <Panel title="Term Structure" accent="var(--pos)" className="col-start-1 col-span-5 row-start-5 row-span-2" delay={0.14}>
         <TermChart />
       </Panel>
 
       {/* ── IV REGIME ── */}
-      <Panel title="IV Regime" accent="var(--gold)" className="col-start-9 col-span-4 row-start-5 row-span-2" delay={0.2}>
+      <Panel title="IV Regime" accent="var(--gold)" className="col-start-6 col-span-3 row-start-5 row-span-2" delay={0.18}>
         <IVRegimeDonut />
+      </Panel>
+
+      {/* ── EXPIRY SNAPSHOT ── */}
+      <Panel title="Expiry Snapshot" accent="#5aa9ff" className="col-start-9 col-span-4 row-start-5 row-span-2" delay={0.22}>
+        <ExpirySnapshot />
       </Panel>
     </div>
   );
@@ -83,7 +86,7 @@ function Seg({ active, onClick, icon, label }: { active: boolean; onClick: () =>
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-1.5 rounded-[6px] border px-2 py-1 text-[10px] font-medium transition"
+      className="flex items-center gap-1 rounded-[5px] border px-1.5 py-1 text-[9px] font-medium transition"
       style={{
         borderColor: active ? 'rgba(244,183,64,0.3)' : 'var(--line)',
         background: active ? 'rgba(244,183,64,0.1)' : 'transparent',
@@ -100,9 +103,9 @@ function SurfaceBadge() {
   const synthetic = useTerminal((s) => s.snap?.positioning.synthetic);
   const label = live ? 'LIVE NSE CHAIN IV' : synthetic === false ? 'LIVE' : 'PARAMETRIC MODEL';
   return (
-    <div className="pointer-events-none absolute right-3 top-12 z-10 flex items-center gap-1.5 rounded-[5px] border border-[color:var(--line)] bg-black/40 px-2 py-1">
+    <div className="pointer-events-none absolute right-3 top-10 z-10 flex items-center gap-1.5 rounded-[4px] border border-[color:var(--line)] bg-black/40 px-1.5 py-0.5">
       <span className="h-1.5 w-1.5 rounded-full pulse" style={{ background: live ? 'var(--pos)' : 'var(--gold)' }} />
-      <span className="text-[8px] font-semibold tracking-widest text-[color:var(--dim)]">{label}</span>
+      <span className="text-[7px] font-semibold tracking-widest text-[color:var(--dim)]">{label}</span>
     </div>
   );
 }
@@ -121,7 +124,6 @@ function SmileChart() {
   const smile = useTerminal((s) => s.snap?.smile);
   const spot = useTerminal((s) => s.snap?.spot);
   if (!smile) return null;
-  // Comparison ghosts: prior-period smiles derived from the current curve.
   const weekAgo = smile.iv.map((v) => v * 0.94 + 0.4);
   const monthAgo = smile.iv.map((v) => v * 0.88 + 0.8);
   return (
@@ -153,7 +155,41 @@ function SmileChart() {
 function TermChart() {
   const term = useTerminal((s) => s.snap?.term);
   if (!term) return null;
-  return <LineChart x={term.dte ?? []} y={term.iv} color="#27d17c" yLabel="IV %" xLabel="days to expiry" dots />;
+  return (
+    <LineChart
+      x={term.dte ?? []}
+      y={term.iv}
+      color="#f4b740"
+      yLabel="IV %"
+      xLabel="days to expiry"
+      dots
+      pointLabels={(v) => `${v.toFixed(1)}%`}
+    />
+  );
+}
+
+function ExpirySnapshot() {
+  const vol = useTerminal((s) => s.snap?.vol);
+  const spot = useTerminal((s) => s.snap?.spot ?? 0);
+  if (!vol) return null;
+  const rows: [string, string, string][] = [
+    ['1σ LOW', vol.sigma1?.[0]?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) ?? '—', 'var(--neg)'],
+    ['1σ HIGH', vol.sigma1?.[1]?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) ?? '—', 'var(--pos)'],
+    ['2σ LOW', vol.sigma2?.[0]?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) ?? '—', 'var(--neg)'],
+    ['2σ HIGH', vol.sigma2?.[1]?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) ?? '—', 'var(--pos)'],
+    ['EM · 1 DAY', `±${vol.em1d.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, 'var(--text)'],
+    ['SPOT', spot.toLocaleString('en-IN', { maximumFractionDigits: 0 }), 'var(--text)'],
+  ];
+  return (
+    <div className="grid h-full grid-cols-2 grid-rows-3 gap-1.5">
+      {rows.map(([l, v, c]) => (
+        <div key={l} className="cell flex flex-col justify-center px-2.5 py-1">
+          <div className="eyebrow text-[8px]">{l}</div>
+          <div className="mono text-[13px] font-semibold" style={{ color: c }}>{v}</div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function Legend({ color, label, dashed }: { color: string; label: string; dashed?: boolean }) {

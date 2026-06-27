@@ -93,12 +93,12 @@ function SurfaceMesh({ wireframe }: { wireframe: boolean }) {
       <mesh geometry={geom} castShadow receiveShadow>
         <meshStandardMaterial
           vertexColors
-          metalness={0.18}
-          roughness={0.55}
+          metalness={0.22}
+          roughness={0.44}
           emissive={new THREE.Color('#000000')}
           emissiveIntensity={0}
           transparent
-          opacity={wireframe ? 0.05 : 0.96}
+          opacity={wireframe ? 0.05 : 0.97}
           side={THREE.DoubleSide}
           flatShading={false}
         />
@@ -121,10 +121,10 @@ function SurfaceMesh({ wireframe }: { wireframe: boolean }) {
 function Lights() {
   return (
     <>
-      <ambientLight intensity={0.55} />
-      <directionalLight position={[6, 12, 6]} intensity={1.1} color="#ffffff" />
-      <directionalLight position={[-8, 6, -4]} intensity={0.35} color="#9fb4d6" />
-      <pointLight position={[0, 8, 0]} intensity={30} distance={40} color="#ffffff" />
+      <ambientLight intensity={0.42} />
+      <directionalLight position={[7, 13, 5]} intensity={1.45} color="#ffffff" />
+      <directionalLight position={[-9, 5, -5]} intensity={0.3} color="#aab8d0" />
+      <pointLight position={[0, 9, 0]} intensity={26} distance={42} color="#ffffff" />
     </>
   );
 }
@@ -165,7 +165,7 @@ export function VolSurface({ wireframe = false }: { wireframe?: boolean }) {
           enablePan
           enableZoom
           autoRotate
-          autoRotateSpeed={0.35}
+          autoRotateSpeed={0.18}
           minDistance={7}
           maxDistance={26}
           maxPolarAngle={Math.PI / 2.05}
