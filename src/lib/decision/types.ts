@@ -1,5 +1,6 @@
 import type { RegimeState } from '../../types';
 import type { VolState, VolRegime } from '../vol/types';
+import type { RiskSignalInput } from '../risk/types';
 
 // ── Decision Engine — type contract ───────────────────────────────────────
 // A composable scoring engine. Each DOMAIN is an independent, pure function that
@@ -22,7 +23,7 @@ export interface DecisionInputs {
   breadth: { ad: number; pcr: number };
   flow: { fii: number; dii: number };
   positioning: { pcr: number; maxPain: number; spot: number; support: number[]; resistance: number[]; gammaFlip: number | null };
-  risk: { heat: number; margin: number; pRuin: number };
+  risk: RiskSignalInput;   // from the Risk / Portfolio engine
 }
 
 export interface DomainResult {

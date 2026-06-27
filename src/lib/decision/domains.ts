@@ -131,16 +131,19 @@ export const positioningDomain: Domain = {
 export const riskDomain: Domain = {
   key: 'risk', label: 'Risk', weight: 0.10,
   run: (i) => {
-    const r = i.risk;
-    const load = clamp(r.heat / 0.05 * 0.4 + r.margin / 0.6 * 0.3 + r.pRuin / 0.05 * 0.3, 0, 1.5);
+    const r = i.risk; // RiskSignalInput (from Risk engine)
+    const load = clamp(
+      r.heat / 0.05 * 0.35 + r.marginUtil / 0.6 * 0.30 + r.pRuin / 0.05 * 0.20 + r.varPctEquity / 0.05 * 0.15,
+      0, 1.5,
+    );
     const selling = clamp(1 - load * 1.4, -1, 1); // capacity to add premium risk
     const strength = clamp(0.5 + load * 0.3, 0, 1);
     return {
       bias: 0, selling, strength,
-      detail: `Heat ${(r.heat * 100).toFixed(1)}%, margin ${(r.margin * 100).toFixed(0)}%, P(ruin) ${(r.pRuin * 100).toFixed(1)}% — ${load < 0.5 ? 'capacity to deploy' : load < 1 ? 'measured capacity' : 'risk budget stretched'}`,
+      detail: `Heat ${(r.heat * 100).toFixed(1)}%, margin ${(r.marginUtil * 100).toFixed(0)}%, VaR ${(r.varPctEquity * 100).toFixed(1)}%, P(ruin) ${(r.pRuin * 100).toFixed(1)}% — ${load < 0.5 ? 'capacity to deploy' : load < 1 ? 'measured capacity' : 'risk budget stretched'}`,
       metrics: [
         { label: 'Heat', value: `${(r.heat * 100).toFixed(1)}%` },
-        { label: 'P(ruin)', value: `${(r.pRuin * 100).toFixed(1)}%` },
+        { label: 'VaR', value: `${(r.varPctEquity * 100).toFixed(1)}%` },
       ],
     };
   },

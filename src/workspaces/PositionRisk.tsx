@@ -1,56 +1,31 @@
 import { Panel } from '../components/ui/Panel';
-import { RiskPanel } from '../components/panels/RiskPanel';
-import { GreeksPanel } from '../components/panels/GreeksPanel';
+import { usePortfolio } from '../lib/risk/usePortfolio';
+import { GreeksAggregation } from '../components/risk/GreeksAggregation';
+import { RiskAnalytics } from '../components/risk/RiskAnalytics';
+import { MonteCarloProbability } from '../components/risk/MonteCarloProbability';
 
-// Phase 1: live portfolio Greeks + risk gauges + Monte-Carlo distribution.
-// Phase 5 adds stress testing, scenario analysis and margin optimisation.
+// Phase 2 · Priority 4 — Position Risk on the Risk Engine: portfolio Greeks +
+// exposure, VaR / risk contribution, Monte-Carlo tail probabilities.
 export function PositionRisk() {
+  const p = usePortfolio();
+
   return (
     <div className="grid h-full min-h-0 grid-cols-12 grid-rows-6 gap-2">
-      <Panel
-        title="Portfolio Greeks"
-        accent="#c79bff"
-        className="col-start-1 col-span-5 row-start-1 row-span-3"
-        delay={0.04}
-      >
-        <GreeksPanel />
+      <Panel title="Portfolio Greeks · Exposure" accent="var(--violet)" className="col-start-1 col-span-5 row-start-1 row-span-6" delay={0.04}>
+        {p ? <GreeksAggregation p={p} /> : <Empty />}
       </Panel>
 
-      <Panel
-        title="Risk · Monte-Carlo · Ruin"
-        accent="#f04668"
-        className="col-start-6 col-span-7 row-start-1 row-span-6"
-        delay={0.08}
-      >
-        <RiskPanel />
+      <Panel title="Risk · VaR · Contribution" accent="var(--neg)" className="col-start-6 col-span-7 row-start-1 row-span-3" delay={0.08}>
+        {p ? <RiskAnalytics p={p} /> : <Empty />}
       </Panel>
 
-      <Panel
-        title="Greek Exposure Notes"
-        className="col-start-1 col-span-5 row-start-4 row-span-3"
-        delay={0.12}
-      >
-        <GreekNotes />
+      <Panel title="Monte-Carlo · Ruin · Drawdown" accent="var(--pos)" className="col-start-6 col-span-7 row-start-4 row-span-3" delay={0.12}>
+        {p ? <MonteCarloProbability p={p} /> : <Empty />}
       </Panel>
     </div>
   );
 }
 
-function GreekNotes() {
-  const NOTES: [string, string][] = [
-    ['Δ Delta', 'Net directional exposure — keep small for premium-selling structures.'],
-    ['Γ Gamma', 'Acceleration of delta — short gamma decays in your favour but spikes on gaps.'],
-    ['Θ Theta', 'Daily time decay — the income engine of short-vol positions.'],
-    ['ν Vega', 'IV sensitivity — short vega profits as implied volatility compresses.'],
-  ];
-  return (
-    <div className="flex h-full flex-col justify-between gap-2 py-0.5">
-      {NOTES.map(([k, v]) => (
-        <div key={k} className="cell px-3 py-2">
-          <div className="mono text-xs font-bold text-[color:var(--pos)]">{k}</div>
-          <div className="mt-0.5 text-[11px] leading-snug text-[color:var(--dim)]">{v}</div>
-        </div>
-      ))}
-    </div>
-  );
+function Empty() {
+  return <div className="flex h-full items-center justify-center text-[11px] text-[color:var(--dim)]">Computing position risk…</div>;
 }

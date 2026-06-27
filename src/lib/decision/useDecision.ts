@@ -1,6 +1,7 @@
 import { useTerminal } from '../../store';
 import { useMacro } from '../macro/useMacro';
 import { useVol } from '../vol/useVol';
+import { usePortfolio } from '../risk/usePortfolio';
 import { runDecision } from './engine';
 import type { DecisionInputs, DecisionOutput } from './types';
 
@@ -11,7 +12,8 @@ export function useDecision(): DecisionOutput | null {
   const snap = useTerminal((s) => s.snap);
   const macro = useMacro();
   const vol = useVol();
-  if (!snap || !vol) return null;
+  const portfolio = usePortfolio();
+  if (!snap || !vol || !portfolio) return null;
 
   const inputs: DecisionInputs = {
     macro: { score: macro.regime.score, confidence: macro.regime.confidence },
@@ -34,9 +36,10 @@ export function useDecision(): DecisionOutput | null {
       gammaFlip: snap.positioning.gammaFlip,
     },
     risk: {
-      heat: snap.risk.portfolioHeat ?? 0,
-      margin: snap.risk.marginUsage ?? 0,
-      pRuin: snap.risk.probRuin ?? snap.montecarlo?.pRuin ?? 0,
+      heat: portfolio.heat,
+      marginUtil: portfolio.marginUtil,
+      pRuin: portfolio.mc.pRuin,
+      varPctEquity: portfolio.varPctEquity,
     },
   };
 

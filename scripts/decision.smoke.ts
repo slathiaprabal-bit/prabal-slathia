@@ -28,7 +28,7 @@ const base: DecisionInputs = {
   breadth: { ad: 1.0, pcr: 1.0 },
   flow: { fii: 0, dii: 1000 },
   positioning: { pcr: 1.0, maxPain: 24000, spot: 24000, support: [], resistance: [], gammaFlip: null },
-  risk: { heat: 0.013, margin: 0.2, pRuin: 0.0 },
+  risk: { heat: 0.013, marginUtil: 0.2, pRuin: 0.0, varPctEquity: 0.01 },
 };
 
 show('Neutral / high-IV → condor', { ...base, vol: vol({ ivRank: 78, vrp: 6, vix: 17 }) });
@@ -47,5 +47,5 @@ show('Bearish + cheap IV → bear put', {
 });
 show('Extreme vol / stretched risk → defensive', {
   ...base, vol: vol({ ivRank: 90, vrp: 9, vix: 26, vixChg: 8 }),
-  risk: { heat: 0.045, margin: 0.55, pRuin: 0.04 },
+  risk: { heat: 0.045, marginUtil: 0.55, pRuin: 0.04, varPctEquity: 0.04 },
 });
