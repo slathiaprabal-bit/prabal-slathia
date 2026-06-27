@@ -1,38 +1,38 @@
 import { Panel } from '../components/ui/Panel';
 import { AIDecisionPanel } from '../components/panels/AIDecisionPanel';
-import { RegimePanel } from '../components/panels/RegimePanel';
-import { VolMetricsPanel } from '../components/panels/VolMetricsPanel';
+import { useDecision } from '../lib/decision/useDecision';
+import { DecisionVerdict } from '../components/decision/DecisionVerdict';
+import { DomainBreakdown } from '../components/decision/DomainBreakdown';
+import { StrategyRecommendation } from '../components/decision/StrategyRecommendation';
 
-// Phase 1: composes the existing AI decision engine with live market-condition
-// context. Phase 3 deepens this into the full institutional scoring lab.
+// Phase 2 · Priority 2 — composable Decision Engine. Seven independent domains
+// (macro, trend, volatility, breadth, flow, positioning, risk) fuse into a
+// directional verdict, suitability, recommended structure and rationale. The
+// backend strategy ranking sits alongside as the specific-structure detail.
 export function StrategyLab() {
+  const d = useDecision();
+
   return (
     <div className="grid h-full min-h-0 grid-cols-12 grid-rows-6 gap-2">
-      <Panel
-        title="AI Decision Engine"
-        accent="#27d17c"
-        className="col-start-1 col-span-8 row-start-1 row-span-6"
-        delay={0.04}
-      >
+      <Panel title="Decision Engine" accent="var(--pos)" className="col-start-1 col-span-5 row-start-1 row-span-3" delay={0.04}>
+        {d ? <DecisionVerdict d={d} /> : <Empty />}
+      </Panel>
+
+      <Panel title="Domain Signal Breakdown" accent="var(--info)" className="col-start-1 col-span-5 row-start-4 row-span-3" delay={0.08}>
+        {d ? <DomainBreakdown signals={d.signals} /> : <Empty />}
+      </Panel>
+
+      <Panel title="Recommendation · Rationale" accent="var(--gold)" className="col-start-6 col-span-3 row-start-1 row-span-6" delay={0.12}>
+        {d ? <StrategyRecommendation d={d} /> : <Empty />}
+      </Panel>
+
+      <Panel title="Ranked Structures · Engine" accent="var(--violet)" className="col-start-9 col-span-4 row-start-1 row-span-6" delay={0.16}>
         <AIDecisionPanel />
-      </Panel>
-
-      <Panel
-        title="Market Regime"
-        className="col-start-9 col-span-4 row-start-1 row-span-2"
-        delay={0.08}
-      >
-        <RegimePanel />
-      </Panel>
-
-      <Panel
-        title="Volatility Conditions"
-        accent="#5aa9ff"
-        className="col-start-9 col-span-4 row-start-3 row-span-4"
-        delay={0.12}
-      >
-        <VolMetricsPanel />
       </Panel>
     </div>
   );
+}
+
+function Empty() {
+  return <div className="flex h-full items-center justify-center text-[11px] text-[color:var(--dim)]">Computing decision…</div>;
 }
