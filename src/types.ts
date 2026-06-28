@@ -148,6 +148,17 @@ export interface Backtest {
   equity: { equity: number; drawdown: number }[];
 }
 
+export interface IndexQuote {
+  value: number | null;
+  chg: number | null;
+}
+
+export interface Secondary {
+  banknifty: IndexQuote;
+  sensex: IndexQuote;
+  finnifty: IndexQuote;
+}
+
 export interface Snapshot {
   ts: string;
   source: string;
@@ -167,6 +178,7 @@ export interface Snapshot {
   strategies: StrategyRanking;
   history?: History;
   backtest?: Backtest;
+  secondary?: Secondary;
 }
 
 export interface StrategyCandidate {

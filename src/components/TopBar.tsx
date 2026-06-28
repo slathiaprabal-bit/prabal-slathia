@@ -22,6 +22,7 @@ export function TopBar() {
   const connLabel = live ? 'LIVE' : isError ? 'ERROR' : 'DEMO';
 
   const spot = snap?.spot ?? 0;
+  const bnf = snap?.secondary?.banknifty;
   const vix = snap?.vol.vix ?? 0;
   const vixChg = snap?.regime.vixChg ?? 0;
   const ivr = snap?.vol.ivRank ?? 0;
@@ -54,7 +55,13 @@ export function TopBar() {
           <Quote label="NIFTY" value={spot.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} chg={-0.42} live animated valueNode={
             <AnimatedNumber value={spot} format={(v) => v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} className="mono text-[15px] font-bold text-white" />
           } />
-          <Quote label="BANKNIFTY" value="54,257.35" chg={-0.51} />
+          <Quote
+            label="BANKNIFTY"
+            value={bnf?.value != null
+              ? bnf.value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+              : '—'}
+            chg={bnf?.chg ?? 0}
+          />
           <div className="flex flex-col">
             <span className="eyebrow text-[8px]">INDIA VIX</span>
             <span className="flex items-baseline gap-1.5">

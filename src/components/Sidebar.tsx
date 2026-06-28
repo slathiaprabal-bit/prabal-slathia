@@ -7,16 +7,18 @@ export function Sidebar() {
   const setWorkspace = useTerminal((s) => s.setWorkspace);
   const conn = useTerminal((s) => s.conn);
   const spot = useTerminal((s) => s.snap?.spot ?? 0);
+  const sec = useTerminal((s) => s.snap?.secondary);
 
   const live = conn === 'live';
 
-  // Quick-view companion quotes: NIFTY derived from live spot, peers simulated
-  // deterministically (presentation chrome — primary engine values stay live).
-  const quick: [string, number, number][] = [
-    ['NIFTY FUT', spot ? spot + 16 : 24072.5, -0.38],
-    ['BANKNIFTY FUT', 54257.35, -0.41],
-    ['FINNIFTY FUT', 24103.2, -0.28],
-    ['SENSEX', 79302.11, -0.37],
+  // Quick-view companion quotes: NIFTY derived from live spot; BankNifty,
+  // FinNifty and Sensex come from the live secondary-index feed (null until a
+  // snapshot arrives, rendered as a placeholder).
+  const quick: [string, number | null, number | null][] = [
+    ['NIFTY FUT', spot ? spot + 16 : null, -0.38],
+    ['BANKNIFTY FUT', sec?.banknifty.value ?? null, sec?.banknifty.chg ?? null],
+    ['FINNIFTY FUT', sec?.finnifty.value ?? null, sec?.finnifty.chg ?? null],
+    ['SENSEX', sec?.sensex.value ?? null, sec?.sensex.chg ?? null],
   ];
 
   return (
@@ -78,10 +80,10 @@ export function Sidebar() {
               <span className="text-[10.5px] text-[color:var(--dim)]">{name}</span>
               <span className="flex items-baseline gap-1.5">
                 <span className="mono text-[11px] font-semibold text-[color:var(--text)]">
-                  {px.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  {px != null ? px.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '—'}
                 </span>
-                <span className="mono text-[10px]" style={{ color: chg >= 0 ? 'var(--pos)' : 'var(--neg)' }}>
-                  {chg >= 0 ? '+' : ''}{chg.toFixed(2)}%
+                <span className="mono text-[10px]" style={{ color: (chg ?? 0) >= 0 ? 'var(--pos)' : 'var(--neg)' }}>
+                  {chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}
                 </span>
               </span>
             </div>

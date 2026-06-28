@@ -197,6 +197,24 @@ def _backtest(cfg: Config, every: int = 60) -> dict:
     return c["data"]
 
 
+# Secondary index strip (BankNifty / Sensex / FinNifty). Memoised + refreshed
+# every `every` ticks — quotes move slowly relative to the 2s stream and the
+# yfinance call is too slow to run every frame.
+_SEC_CACHE: dict = {"n": 0, "data": None}
+
+
+def _secondary(cfg: Config, every: int = 30) -> dict:
+    c = _SEC_CACHE
+    if c["data"] is None or c["n"] % every == 0:
+        try:
+            from quant_engine.data import get_secondary_indices
+            c["data"] = get_secondary_indices(cfg)
+        except Exception:
+            c["data"] = {}
+    c["n"] += 1
+    return c["data"]
+
+
 def build_snapshot(cfg: Config, mc: dict | None = None,
                    probe: Probe | None = None) -> dict:
     """The full live snapshot consumed by the terminal."""
@@ -362,4 +380,5 @@ def build_snapshot(cfg: Config, mc: dict | None = None,
         "strategies": strategies,
         "history": _history(cfg),
         "backtest": _backtest(cfg),
+        "secondary": _secondary(cfg),
     }
