@@ -11,6 +11,7 @@ rest of the pipeline always runs.
 
 from __future__ import annotations
 
+import json
 import math
 import warnings
 from pathlib import Path
@@ -181,6 +182,82 @@ def _load_cache(config: Config) -> pd.DataFrame | None:
         return df
     except Exception:
         return None
+
+
+# --------------------------------------------------------------------------- #
+# Secondary index strip (BankNifty / Sensex / FinNifty)
+# --------------------------------------------------------------------------- #
+# Yahoo Finance symbols for the companion indices shown alongside NIFTY.
+_SECONDARY_SYMBOLS: dict[str, str] = {
+    "banknifty": "^NSEBANK",
+    "sensex": "^BSESN",
+    "finnifty": "NIFTY_FIN_SERVICE.NS",
+}
+
+
+def _fetch_secondary_live() -> dict | None:
+    """Pull last close + day change for each secondary index via yfinance.
+
+    Uses the same download path as the NIFTY loader. Returns None only if
+    yfinance is unavailable; otherwise returns whatever symbols resolved.
+    """
+    try:
+        import yfinance as yf
+    except Exception:
+        return None
+
+    out: dict[str, dict] = {}
+    for key, sym in _SECONDARY_SYMBOLS.items():
+        try:
+            px = yf.download(sym, period="5d", interval="1d",
+                             progress=False, auto_adjust=False)
+            if px is None or px.empty:
+                continue
+            px = _flatten(px)
+            if "Close" not in px:
+                continue
+            closes = px["Close"].to_numpy(dtype=float).ravel()
+            closes = closes[~np.isnan(closes)]
+            if len(closes) == 0:
+                continue
+            last = float(closes[-1])
+            prev = float(closes[-2]) if len(closes) > 1 else last
+            chg = ((last / prev - 1.0) * 100.0) if prev else 0.0
+            out[key] = {"value": round(last, 2), "chg": round(chg, 2)}
+        except Exception:
+            continue
+    return out
+
+
+def get_secondary_indices(config: Config) -> dict:
+    """Live quotes for the secondary index strip.
+
+    Mirrors ``get_market_data``'s live -> cache fallback. Returns
+    ``{key: {"value": float|None, "chg": float|None}}`` for every key in
+    ``_SECONDARY_SYMBOLS``; missing indices carry None so the frontend can
+    render a placeholder rather than a stale hardcoded number.
+    """
+    data: dict | None = None
+    if config.use_live:
+        data = _fetch_secondary_live()
+
+    cache = config.data_dir / "secondary.json"
+    if data:
+        try:
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_text(json.dumps(data))
+        except Exception:
+            pass
+    else:
+        try:
+            if cache.exists():
+                data = json.loads(cache.read_text())
+        except Exception:
+            data = None
+
+    data = data or {}
+    return {k: data.get(k, {"value": None, "chg": None})
+            for k in _SECONDARY_SYMBOLS}
 
 
 # --------------------------------------------------------------------------- #

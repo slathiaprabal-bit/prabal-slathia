@@ -166,6 +166,11 @@ export function mockSnapshot(): Snapshot {
         : [],
       rejectReasons: trade ? [] : ['Vol expanding — short gamma dangerous. Stand aside.'],
     },
+    secondary: {
+      banknifty: { value: 54257.35 + Math.sin(t * 0.4) * 120, chg: -0.51 + Math.sin(t * 0.3) * 0.25 },
+      sensex: { value: 79302.11 + Math.sin(t * 0.3) * 180, chg: -0.37 + Math.sin(t * 0.25) * 0.2 },
+      finnifty: { value: 24103.2 + Math.sin(t * 0.5) * 60, chg: -0.28 + Math.sin(t * 0.35) * 0.22 },
+    },
   };
 }
 
