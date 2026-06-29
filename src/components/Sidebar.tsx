@@ -21,6 +21,16 @@ export function Sidebar() {
     ['SENSEX', sec?.sensex.value ?? null, sec?.sensex.chg ?? null],
   ];
 
+  // ---- VOLARA-DBG: what the Quick View maps from the store this render ----
+  console.log('[VOLARA-DBG Sidebar QuickView]', JSON.stringify({
+    t: Math.round(performance.now()), component: 'Sidebar',
+    spot,
+    'sec.banknifty': sec?.banknifty,
+    'sec.finnifty': sec?.finnifty,
+    'sec.sensex': sec?.sensex,
+    quickRendered: quick.map(([n, px]) => `${n}=${px}`),
+  }));
+
   return (
     <aside className="sidebar flex flex-col">
       {/* Navigation */}

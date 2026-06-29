@@ -64,11 +64,31 @@ export function startFeed() {
         return;
       }
       if (data && data.regime) {
+        // ---- VOLARA-DBG: prove what the WS actually delivered ----
+        // Raw JSON bytes (bypasses any object-ref confusion):
+        const secIdx = ev.data.indexOf('"secondary"');
+        const vixIdx = ev.data.indexOf('"vix"');
+        console.log('[VOLARA-DBG WS raw json]',
+          'vix=', vixIdx >= 0 ? ev.data.slice(vixIdx, vixIdx + 26) : 'n/a',
+          '| secondary=', secIdx >= 0 ? ev.data.slice(secIdx, secIdx + 170) : 'n/a');
+        // Parsed values + the smoking-gun equality check:
+        console.log('[VOLARA-DBG WS parsed]', JSON.stringify({
+          t: Math.round(performance.now()),
+          vix: data.vol?.vix,
+          banknifty: data.secondary?.banknifty,
+          finnifty: data.secondary?.finnifty,
+          sensex: data.secondary?.sensex,
+          banknifty_value_equals_vix: data.secondary?.banknifty?.value === data.vol?.vix,
+        }));
         // Valid live snapshot.
         gotLive = true;
         setError(null);
         setConn('live');
+        console.log('[VOLARA-DBG before setSnap]', Math.round(performance.now()));
         setSnap(data as Snapshot);
+        console.log('[VOLARA-DBG after setSnap] store.banknifty=',
+          JSON.stringify(useTerminal.getState().snap?.secondary?.banknifty),
+          'store.vix=', useTerminal.getState().snap?.vol?.vix);
       } else if (data && (data.error || data.traceback)) {
         // Instrumented backend error — surface it, but KEEP the last good live
         // snapshot on screen. Do NOT clear gotLive: once a live frame has

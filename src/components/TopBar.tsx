@@ -28,6 +28,12 @@ export function TopBar() {
   const ivr = snap?.vol.ivRank ?? 0;
   const ivrTag = ivr >= 70 ? 'High' : ivr >= 45 ? 'Moderate' : 'Low';
   const ivrColor = ivr >= 70 ? 'var(--neg)' : ivr >= 45 ? 'var(--gold)' : 'var(--pos)';
+  // ---- VOLARA-DBG: what TopBar reads from the store this render ----
+  console.log('[VOLARA-DBG TopBar render]', JSON.stringify({
+    t: Math.round(performance.now()), component: 'TopBar',
+    spot, vix, ivr, banknifty: bnf,
+  }));
+
   const regime = snap?.regime.state ?? 'NORMAL';
   const regUp = regime === 'TRENDING_UP';
   const regDown = regime === 'TRENDING_DOWN' || regime === 'NO_GO';
@@ -53,7 +59,7 @@ export function TopBar() {
         {/* Multi-index strip */}
         <div className="flex items-center gap-5">
           <Quote label="NIFTY" value={spot.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} chg={-0.42} live animated valueNode={
-            <AnimatedNumber value={spot} format={(v) => v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} className="mono text-[15px] font-bold text-white" />
+            <AnimatedNumber debugLabel="NIFTY-spot" value={spot} format={(v) => v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} className="mono text-[15px] font-bold text-white" />
           } />
           <Quote
             label="BANKNIFTY"
@@ -65,7 +71,7 @@ export function TopBar() {
           <div className="flex flex-col">
             <span className="eyebrow text-[8px]">INDIA VIX</span>
             <span className="flex items-baseline gap-1.5">
-              <AnimatedNumber value={vix} format={(v) => v.toFixed(2)} className="mono text-[15px] font-bold text-white" />
+              <AnimatedNumber debugLabel="INDIA-VIX" value={vix} format={(v) => v.toFixed(2)} className="mono text-[15px] font-bold text-white" />
               <span className="mono text-[10px]" style={{ color: vixChg >= 0 ? 'var(--neg)' : 'var(--pos)' }}>
                 {vixChg >= 0 ? '+' : ''}{vixChg.toFixed(2)}%
               </span>
@@ -74,7 +80,7 @@ export function TopBar() {
           <div className="flex flex-col">
             <span className="eyebrow text-[8px]">IV RANK</span>
             <span className="flex items-baseline gap-1.5">
-              <AnimatedNumber value={ivr} format={(v) => v.toFixed(0)} className="mono text-[15px] font-bold text-white" />
+              <AnimatedNumber debugLabel="IV-RANK" value={ivr} format={(v) => v.toFixed(0)} className="mono text-[15px] font-bold text-white" />
               <span className="text-[10px] font-semibold" style={{ color: ivrColor }}>{ivrTag}</span>
             </span>
           </div>
@@ -104,6 +110,10 @@ export function TopBar() {
 }
 
 function Quote({ label, value, chg, valueNode }: { label: string; value: string; chg: number; live?: boolean; animated?: boolean; valueNode?: React.ReactNode }) {
+  console.log('[VOLARA-DBG Quote render]', JSON.stringify({
+    t: Math.round(performance.now()), component: 'Quote', fieldName: label,
+    renderedValue: valueNode ? '(animated node)' : value, chg,
+  }));
   return (
     <div className="flex flex-col">
       <span className="eyebrow text-[8px]">{label}</span>
