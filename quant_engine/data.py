@@ -265,7 +265,10 @@ def get_secondary_indices(config: Config) -> dict:
         except Exception:
             pass
 
-    return {k: _SECONDARY_LAST.get(k, {"value": None, "chg": None})
+    # Build one complete, self-contained snapshot (copied inner dicts so the
+    # published object never aliases _SECONDARY_LAST). The caller swaps this in
+    # with a single assignment, so a reader never sees a half-updated strip.
+    return {k: dict(_SECONDARY_LAST.get(k, {"value": None, "chg": None}))
             for k in _SECONDARY_SYMBOLS}
 
 

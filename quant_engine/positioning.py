@@ -79,6 +79,31 @@ def _gamma(spot, strike, t, vol, rate=0.066):
     return pdf / (spot * vol * math.sqrt(t))
 
 
+def _sanitize_chain(chain: pd.DataFrame) -> pd.DataFrame:
+    """Drop malformed live rows so one bad strike can't crash the pipeline.
+
+    Live NSE rows occasionally carry a NaN/negative implied vol or a junk
+    strike. We coerce the numeric columns, keep only rows with a real positive
+    strike and finite OI, and clamp implied vols / OI to a sane non-negative
+    range. Downstream math (max-pain, gamma/GEX) then never sees a value that
+    would raise (negative IV into a sqrt/log, zero/negative strike, NaN).
+    """
+    df = chain.copy()
+    for col in ("Strike", "CE_OI", "PE_OI", "CE_IV", "PE_IV"):
+        if col in df:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    # A usable row needs a real, positive strike and finite open interest.
+    df = df[np.isfinite(df["Strike"]) & (df["Strike"] > 0)]
+    df = df[np.isfinite(df["CE_OI"]) & np.isfinite(df["PE_OI"])]
+    df["CE_OI"] = df["CE_OI"].clip(lower=0.0)
+    df["PE_OI"] = df["PE_OI"].clip(lower=0.0)
+    # NSE quotes 0/garbage IV on dead strikes — clamp to a non-negative number.
+    for col in ("CE_IV", "PE_IV"):
+        if col in df:
+            df[col] = df[col].where(np.isfinite(df[col]), 0.0).clip(lower=0.0)
+    return df.reset_index(drop=True)
+
+
 def max_pain(chain: pd.DataFrame) -> float:
     """Strike at which total intrinsic payout to option HOLDERS is minimised
     (i.e. where option writers lose the least) given current OI."""
@@ -97,6 +122,14 @@ def max_pain(chain: pd.DataFrame) -> float:
 
 def analyze_chain(chain: pd.DataFrame, spot: float, config: Config,
                   synthetic: bool) -> Positioning:
+    # Skip malformed live rows up front so a single bad row from the NSE feed
+    # cannot crash the snapshot (and therefore the WebSocket stream).
+    chain = _sanitize_chain(chain)
+    if chain.empty:
+        return Positioning(
+            synthetic=synthetic, spot=round(spot, 1), max_pain=round(spot, 1),
+            pcr_oi=float("nan"), note="No valid option-chain rows.",
+        )
     mp = max_pain(chain)
     total_pe = chain["PE_OI"].sum()
     total_ce = chain["CE_OI"].sum()
@@ -114,8 +147,12 @@ def analyze_chain(chain: pd.DataFrame, spot: float, config: Config,
     contract = config.primary_instrument.lot_size
     profile = []
     for _, r in chain.iterrows():
-        g = _gamma(spot, float(r["Strike"]), t, float(r["CE_IV"]) / 100.0)
-        node = g * (float(r["CE_OI"]) - float(r["PE_OI"])) * contract * spot
+        # Defensive: even after sanitising, never let one row kill the stream.
+        try:
+            g = _gamma(spot, float(r["Strike"]), t, float(r["CE_IV"]) / 100.0)
+            node = g * (float(r["CE_OI"]) - float(r["PE_OI"])) * contract * spot
+        except (ValueError, ZeroDivisionError, FloatingPointError):
+            continue
         gex += node
         profile.append((float(r["Strike"]), node))
     # Gamma flip ~ strike where cumulative GEX crosses zero.

@@ -88,9 +88,12 @@ async def _start_secondary_refresher():
     async def loop():
         while True:
             try:
-                data = await asyncio.to_thread(get_secondary_indices, cfg)
-                if data:
-                    _SEC_CACHE["data"] = data
+                # Fetch all symbols and assemble the full strip off-thread, then
+                # publish with a single atomic assignment — readers (the snapshot
+                # builder) only ever see a complete strip, never a partial one.
+                fresh = await asyncio.to_thread(get_secondary_indices, cfg)
+                if fresh:
+                    _SEC_CACHE["data"] = fresh
             except Exception:
                 pass
             await asyncio.sleep(SECONDARY_REFRESH)
