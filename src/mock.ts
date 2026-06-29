@@ -166,10 +166,14 @@ export function mockSnapshot(): Snapshot {
         : [],
       rejectReasons: trade ? [] : ['Vol expanding — short gamma dangerous. Stand aside.'],
     },
+    // Secondary indices come only from the live feed — never fabricate them.
+    // Real index levels can't be sensibly mocked, and during the cold-start
+    // window these would render as if real (the source of the transient wrong
+    // Sensex/FinNifty values). Null => the UI shows '—' until live data lands.
     secondary: {
-      banknifty: { value: 54257.35 + Math.sin(t * 0.4) * 120, chg: -0.51 + Math.sin(t * 0.3) * 0.25 },
-      sensex: { value: 79302.11 + Math.sin(t * 0.3) * 180, chg: -0.37 + Math.sin(t * 0.25) * 0.2 },
-      finnifty: { value: 24103.2 + Math.sin(t * 0.5) * 60, chg: -0.28 + Math.sin(t * 0.35) * 0.22 },
+      banknifty: { value: null, chg: null },
+      sensex: { value: null, chg: null },
+      finnifty: { value: null, chg: null },
     },
   };
 }
