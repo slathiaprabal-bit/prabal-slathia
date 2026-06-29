@@ -38,6 +38,7 @@ app.add_middleware(
 
 STREAM_INTERVAL = float(os.getenv("QT_STREAM_INTERVAL", "2.0"))   # seconds
 MC_EVERY = int(os.getenv("QT_MC_EVERY", "30"))                    # ticks per MC refresh
+SECONDARY_REFRESH = float(os.getenv("QT_SECONDARY_REFRESH", "5.0"))  # seconds
 
 
 def _config() -> Config:
@@ -68,6 +69,33 @@ def _mc(cfg: Config, force: bool = False) -> dict:
         except Exception:
             _MC_CACHE = {}
     return _MC_CACHE
+
+
+@app.on_event("startup")
+async def _start_secondary_refresher():
+    """Refresh the secondary-index quotes on their own cadence.
+
+    The BankNifty/Sensex/FinNifty fetch is 3 sequential yfinance calls — too
+    slow to run inside every 2s snapshot tick. Running it here, off the tick
+    loop, keeps `serializers._SEC_CACHE` warm so the per-tick read never blocks,
+    and all four indices update at ~SECONDARY_REFRESH (not once per 30 ticks).
+    """
+    from quant_engine.data import get_secondary_indices
+    from .serializers import _SEC_CACHE
+
+    cfg = _config()
+
+    async def loop():
+        while True:
+            try:
+                data = await asyncio.to_thread(get_secondary_indices, cfg)
+                if data:
+                    _SEC_CACHE["data"] = data
+            except Exception:
+                pass
+            await asyncio.sleep(SECONDARY_REFRESH)
+
+    asyncio.create_task(loop())
 
 
 @app.get("/api/health")

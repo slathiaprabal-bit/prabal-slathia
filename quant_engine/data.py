@@ -229,13 +229,20 @@ def _fetch_secondary_live() -> dict | None:
     return out
 
 
+# Last-good quotes per symbol, kept across calls so a transient single-symbol
+# fetch failure never blanks an index that was previously live.
+_SECONDARY_LAST: dict = {}
+
+
 def get_secondary_indices(config: Config) -> dict:
     """Live quotes for the secondary index strip.
 
-    Mirrors ``get_market_data``'s live -> cache fallback. Returns
+    Mirrors ``get_market_data``'s live -> cache fallback, and merges each
+    freshly-fetched symbol over the last-good values: if one of the three
+    downloads fails on a given cycle, that index keeps its previous quote
+    instead of flickering to None. Returns
     ``{key: {"value": float|None, "chg": float|None}}`` for every key in
-    ``_SECONDARY_SYMBOLS``; missing indices carry None so the frontend can
-    render a placeholder rather than a stale hardcoded number.
+    ``_SECONDARY_SYMBOLS``.
     """
     data: dict | None = None
     if config.use_live:
@@ -243,20 +250,22 @@ def get_secondary_indices(config: Config) -> dict:
 
     cache = config.data_dir / "secondary.json"
     if data:
+        # Merge only the symbols that resolved this cycle over the last-good set.
+        _SECONDARY_LAST.update(data)
         try:
             cache.parent.mkdir(parents=True, exist_ok=True)
-            cache.write_text(json.dumps(data))
+            cache.write_text(json.dumps(_SECONDARY_LAST))
         except Exception:
             pass
-    else:
+    elif not _SECONDARY_LAST:
+        # Nothing fetched live yet this process — seed from the on-disk cache.
         try:
             if cache.exists():
-                data = json.loads(cache.read_text())
+                _SECONDARY_LAST.update(json.loads(cache.read_text()))
         except Exception:
-            data = None
+            pass
 
-    data = data or {}
-    return {k: data.get(k, {"value": None, "chg": None})
+    return {k: _SECONDARY_LAST.get(k, {"value": None, "chg": None})
             for k in _SECONDARY_SYMBOLS}
 
 
