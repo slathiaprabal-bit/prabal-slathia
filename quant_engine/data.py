@@ -47,22 +47,34 @@ def _fetch_live(config: Config) -> pd.DataFrame | None:
     if px is None or px.empty:
         return None
 
-    # yfinance may return a MultiIndex column frame for a single ticker.
+    # yfinance may return a MultiIndex column frame for a single ticker; flatten
+    # AND de-duplicate so each OHLC field selects a single 1-D Series (a live
+    # 'Close'/'Adj Close' collision otherwise yields a 2-D block whose ravel()
+    # doubles its length -> "All arrays must be of the same length").
     px = _flatten(px)
-    df = pd.DataFrame({
-        "Date": pd.to_datetime(px.index).tz_localize(None),
-        "Open": px["Open"].to_numpy(dtype=float).ravel(),
-        "High": px["High"].to_numpy(dtype=float).ravel(),
-        "Low": px["Low"].to_numpy(dtype=float).ravel(),
-        "Close": px["Close"].to_numpy(dtype=float).ravel(),
-    }).reset_index(drop=True)
+    needed = ["Open", "High", "Low", "Close"]
+    missing = [c for c in needed if c not in px.columns]
+    if missing:
+        warnings.warn(f"[data] live frame for {sym} missing OHLC columns {missing}")
+        return None
+
+    # Build from the same frame so every column shares px's row index and is
+    # therefore guaranteed equal-length and row-aligned — no parallel ravel().
+    df = px[needed].apply(pd.to_numeric, errors="coerce")
+    df.insert(0, "Date", pd.to_datetime(px.index).tz_localize(None))
+    df = df.reset_index(drop=True)
 
     if vix is not None and not vix.empty:
         vix = _flatten(vix)
-        vser = pd.Series(vix["Close"].to_numpy(dtype=float).ravel(),
-                         index=pd.to_datetime(vix.index).tz_localize(None))
-        df["VIX"] = df["Date"].map(vser).to_numpy()
-        df["VIX"] = df["VIX"].ffill().bfill()
+        if "Close" in vix.columns:
+            vser = pd.Series(
+                pd.to_numeric(vix["Close"], errors="coerce").to_numpy(),
+                index=pd.to_datetime(vix.index).tz_localize(None),
+            )
+            df["VIX"] = df["Date"].map(vser).to_numpy()
+            df["VIX"] = df["VIX"].ffill().bfill()
+        else:
+            df["VIX"] = _vix_from_realised(df["Close"])
     else:
         df["VIX"] = _vix_from_realised(df["Close"])
 
@@ -74,6 +86,10 @@ def _flatten(df: pd.DataFrame) -> pd.DataFrame:
     if isinstance(df.columns, pd.MultiIndex):
         df = df.copy()
         df.columns = df.columns.get_level_values(0)
+    # Collapse any duplicate field columns (e.g. a 'Close'/'Adj Close' collision
+    # after flattening) so selecting a field returns a single 1-D Series.
+    if df.columns.duplicated().any():
+        df = df.loc[:, ~df.columns.duplicated()]
     return df
 
 
