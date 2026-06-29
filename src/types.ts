@@ -205,10 +205,11 @@ export interface StrategyRanking {
   allScores: Record<string, number>;
 }
 
-// 8 institutional workspaces — the sidebar navigation contract.
+// Institutional workspaces — the sidebar navigation contract.
 export type WorkspaceId =
   | 'volatility'
   | 'strategy'
+  | 'agent'
   | 'risk'
   | 'breadth'
   | 'macro'

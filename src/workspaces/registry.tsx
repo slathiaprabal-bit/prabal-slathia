@@ -1,12 +1,13 @@
 import type { ComponentType } from 'react';
 import {
-  Layers, Cpu, ShieldAlert, Activity, Globe, PieChart, BookOpen, FlaskConical, Settings,
+  Layers, Cpu, Brain, ShieldAlert, Activity, Globe, PieChart, BookOpen, FlaskConical, Settings,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { WorkspaceId } from '../types';
 
 import { VolatilityTerminal } from './VolatilityTerminal';
 import { StrategyLab } from './StrategyLab';
+import { ResearchAgent } from './ResearchAgent';
 import { PositionRisk } from './PositionRisk';
 import { MarketBreadth } from './MarketBreadth';
 import { MacroIntelligence } from './MacroIntelligence';
@@ -41,6 +42,14 @@ export const WORKSPACES: WorkspaceDef[] = [
     icon: Cpu,
     accent: '#27d17c',
     Component: StrategyLab,
+  },
+  {
+    id: 'agent',
+    label: 'Research Agent',
+    subtitle: 'Thesis · confluence · pre-mortem · gates · learned edge',
+    icon: Brain,
+    accent: '#27d17c',
+    Component: ResearchAgent,
   },
   {
     id: 'risk',
