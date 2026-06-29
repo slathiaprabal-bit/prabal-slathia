@@ -22,7 +22,14 @@ export function AnimatedNumber({
   useEffect(() => {
     const from = fromRef.current;
     const to = value;
-    if (from === to || !isFinite(to)) {
+    // Snap immediately (no roll) on first paint, a non-finite value, or a
+    // discontinuity — a large relative jump that means a source switch
+    // (mock -> live) or field reuse rather than a normal market tick. This
+    // guarantees the displayed number is always the current snapshot value or a
+    // small interpolation toward it, never rolling through a stale/foreign one.
+    const discontinuous = !isFinite(from) ||
+      Math.abs(to - from) > Math.max(1, Math.abs(to)) * 0.25;
+    if (from === to || !isFinite(to) || discontinuous) {
       setDisplay(to);
       fromRef.current = to;
       return;

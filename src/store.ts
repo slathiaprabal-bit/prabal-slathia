@@ -70,8 +70,12 @@ export function startFeed() {
         setConn('live');
         setSnap(data as Snapshot);
       } else if (data && (data.error || data.traceback)) {
-        // Instrumented backend error — show the traceback in the UI.
-        gotLive = false;
+        // Instrumented backend error — surface it, but KEEP the last good live
+        // snapshot on screen. Do NOT clear gotLive: once a live frame has
+        // arrived we never resume the mock cold-start feed, so the snapshot
+        // source stays single (the live socket). This prevents live frames from
+        // interleaving with independent mock frames mid-stream, which is what
+        // made the top bar briefly show mixed-frame / wrong values.
         setError(data as BackendError);
         setConn('error');
       }
