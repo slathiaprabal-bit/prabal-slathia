@@ -206,14 +206,15 @@ _SEC_CACHE: dict = {"data": None}
 
 
 def _secondary(cfg: Config) -> dict:
-    c = _SEC_CACHE
-    if c["data"] is None:
-        try:
-            from quant_engine.data import get_secondary_indices
-            c["data"] = get_secondary_indices(cfg)
-        except Exception:
-            c["data"] = {}
-    return c["data"]
+    # Read-only view of the strip kept warm by the background refresher in
+    # server.py, which is the SOLE producer. We deliberately do NOT fetch here:
+    # doing so made the snapshot builder a second concurrent producer that also
+    # mutated quant_engine._SECONDARY_LAST, racing the refresher. Until the
+    # refresher has published, return null placeholders (UI shows '—').
+    data = _SEC_CACHE["data"]
+    if data:
+        return data
+    return {k: {"value": None, "chg": None} for k in ("banknifty", "sensex", "finnifty")}
 
 
 def build_snapshot(cfg: Config, mc: dict | None = None,
