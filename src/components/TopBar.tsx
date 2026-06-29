@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Bell, Settings as SettingsIcon, User, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useTerminal } from '../store';
 import { AnimatedNumber } from './ui/AnimatedNumber';
-import { dbg } from '../debug';
 
 export function TopBar() {
   const snap = useTerminal((s) => s.snap);
@@ -29,9 +28,6 @@ export function TopBar() {
   const ivr = snap?.vol.ivRank ?? 0;
   const ivrTag = ivr >= 70 ? 'High' : ivr >= 45 ? 'Moderate' : 'Low';
   const ivrColor = ivr >= 70 ? 'var(--neg)' : ivr >= 45 ? 'var(--gold)' : 'var(--pos)';
-  // ---- VOLARA-DBG: only record during an armed anomaly capture ----
-  if (dbg.armed) dbg.topbar = { spot, vix, ivr, banknifty: bnf };
-
   const regime = snap?.regime.state ?? 'NORMAL';
   const regUp = regime === 'TRENDING_UP';
   const regDown = regime === 'TRENDING_DOWN' || regime === 'NO_GO';

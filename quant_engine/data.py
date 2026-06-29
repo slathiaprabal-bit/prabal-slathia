@@ -13,12 +13,23 @@ from __future__ import annotations
 
 import json
 import math
+import threading
 import warnings
 from pathlib import Path
 from typing import Tuple
 
 import numpy as np
 import pandas as pd
+
+# yfinance is NOT thread-safe: it shares a session / tz-cache / parsing state
+# across calls. The FastAPI server downloads from two threads concurrently (the
+# per-tick build_snapshot thread for NIFTY/VIX, and the secondary-index
+# refresher thread for BankNifty/Sensex/FinNifty). Without serialisation those
+# concurrent yf.download() calls race and return each other's frames, which
+# showed up as a rotation (banknifty<-vix, sensex<-banknifty, finnifty<-sensex).
+# This lock serialises every yfinance download so a call always returns its own
+# symbol's data.
+_YF_LOCK = threading.Lock()
 
 from .config import Config
 
@@ -36,10 +47,11 @@ def _fetch_live(config: Config) -> pd.DataFrame | None:
     sym = config.primary_instrument.yahoo_symbol
     try:
         period = f"{max(config.history_days + 60, 120)}d"
-        px = yf.download(sym, period=period, interval="1d",
-                         progress=False, auto_adjust=False)
-        vix = yf.download(config.vix_symbol, period=period, interval="1d",
-                          progress=False, auto_adjust=False)
+        with _YF_LOCK:
+            px = yf.download(sym, period=period, interval="1d",
+                             progress=False, auto_adjust=False)
+            vix = yf.download(config.vix_symbol, period=period, interval="1d",
+                              progress=False, auto_adjust=False)
     except Exception as exc:  # network / proxy / parse failure
         warnings.warn(f"[data] live download failed for {sym}: {exc}")
         return None
@@ -225,8 +237,9 @@ def _fetch_secondary_live() -> dict | None:
     out: dict[str, dict] = {}
     for key, sym in _SECONDARY_SYMBOLS.items():
         try:
-            px = yf.download(sym, period="5d", interval="1d",
-                             progress=False, auto_adjust=False)
+            with _YF_LOCK:
+                px = yf.download(sym, period="5d", interval="1d",
+                                 progress=False, auto_adjust=False)
             if px is None or px.empty:
                 continue
             px = _flatten(px)

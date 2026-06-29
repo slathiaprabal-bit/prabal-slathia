@@ -1,7 +1,6 @@
 import { motion } from 'motion/react';
 import { useTerminal } from '../store';
 import { WORKSPACES } from '../workspaces/registry';
-import { dbg } from '../debug';
 
 export function Sidebar() {
   const workspace = useTerminal((s) => s.workspace);
@@ -21,17 +20,6 @@ export function Sidebar() {
     ['FINNIFTY FUT', sec?.finnifty.value ?? null, sec?.finnifty.chg ?? null],
     ['SENSEX', sec?.sensex.value ?? null, sec?.sensex.chg ?? null],
   ];
-
-  // ---- VOLARA-DBG: only record during an armed anomaly capture ----
-  if (dbg.armed) {
-    dbg.sidebar = {
-      spot,
-      'sec.banknifty': sec?.banknifty,
-      'sec.finnifty': sec?.finnifty,
-      'sec.sensex': sec?.sensex,
-      quickRendered: quick.map(([n, px]) => `${n}=${px}`),
-    };
-  }
 
   return (
     <aside className="sidebar flex flex-col">
