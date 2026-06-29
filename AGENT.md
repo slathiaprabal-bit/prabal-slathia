@@ -1,5 +1,10 @@
 # AI Trading Research Agent
 
+> **Architecture & design charter:** see [`AGENT_ARCHITECTURE.md`](./AGENT_ARCHITECTURE.md)
+> for the governing design principles, full module map, data-ownership rules,
+> the Knowledge subsystem, and the MVP→production roadmap. This file is the
+> quick overview; the charter is the source of truth.
+
 An **independent** research subsystem that thinks like an experienced
 discretionary trader. It does **not** generate buy/sell signals. Its job is to
 **reduce bad trades, improve decision quality, preserve capital, and learn from
