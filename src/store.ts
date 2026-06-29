@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Snapshot, ConnState, BackendError, WorkspaceId } from './types';
 import { mockSnapshot } from './mock';
+import { dbg, armCapture } from './debug';
 
 const WS_URL =
   (import.meta as any).env?.VITE_WS_URL ||
@@ -39,6 +40,7 @@ export const useTerminal = create<TerminalState>((set, get) => ({
 export function startFeed() {
   const { setSnap, setConn, setError } = useTerminal.getState();
   let gotLive = false;
+  let anomalyLatched = false; // VOLARA-DBG: capture once per anomaly episode
 
   // Instant demo fill + keep ticking until/unless live takes over.
   setSnap(mockSnapshot());
@@ -64,31 +66,34 @@ export function startFeed() {
         return;
       }
       if (data && data.regime) {
-        // ---- VOLARA-DBG: prove what the WS actually delivered ----
-        // Raw JSON bytes (bypasses any object-ref confusion):
-        const secIdx = ev.data.indexOf('"secondary"');
-        const vixIdx = ev.data.indexOf('"vix"');
-        console.log('[VOLARA-DBG WS raw json]',
-          'vix=', vixIdx >= 0 ? ev.data.slice(vixIdx, vixIdx + 26) : 'n/a',
-          '| secondary=', secIdx >= 0 ? ev.data.slice(secIdx, secIdx + 170) : 'n/a');
-        // Parsed values + the smoking-gun equality check:
-        console.log('[VOLARA-DBG WS parsed]', JSON.stringify({
-          t: Math.round(performance.now()),
-          vix: data.vol?.vix,
-          banknifty: data.secondary?.banknifty,
-          finnifty: data.secondary?.finnifty,
-          sensex: data.secondary?.sensex,
-          banknifty_value_equals_vix: data.secondary?.banknifty?.value === data.vol?.vix,
-        }));
         // Valid live snapshot.
         gotLive = true;
         setError(null);
         setConn('live');
-        console.log('[VOLARA-DBG before setSnap]', Math.round(performance.now()));
-        setSnap(data as Snapshot);
-        console.log('[VOLARA-DBG after setSnap] store.banknifty=',
-          JSON.stringify(useTerminal.getState().snap?.secondary?.banknifty),
-          'store.vix=', useTerminal.getState().snap?.vol?.vix);
+
+        // ---- VOLARA-DBG: anomaly-triggered capture (one group per episode) ----
+        const _vix = data.vol?.vix;
+        const _bnf = data.secondary?.banknifty?.value;
+        const isAnomaly = _bnf != null && (_bnf < 1000 || _bnf === _vix);
+        if (isAnomaly && !anomalyLatched) {
+          anomalyLatched = true;
+          const secIdx = ev.data.indexOf('"secondary"');
+          const vixIdx = ev.data.indexOf('"vix"');
+          armCapture({                       // arm BEFORE setSnap so renders populate
+            ws_raw: `vix=${vixIdx >= 0 ? ev.data.slice(vixIdx, vixIdx + 26) : 'n/a'}  ||  secondary=${secIdx >= 0 ? ev.data.slice(secIdx, secIdx + 180) : 'n/a'}`,
+            ws_parsed: {
+              vix: _vix, banknifty: data.secondary?.banknifty,
+              finnifty: data.secondary?.finnifty, sensex: data.secondary?.sensex,
+              banknifty_value_equals_vix: _bnf === _vix,
+            },
+            before: { banknifty: useTerminal.getState().snap?.secondary?.banknifty, vix: useTerminal.getState().snap?.vol?.vix },
+          });
+          setSnap(data as Snapshot);
+          dbg.after = { banknifty: useTerminal.getState().snap?.secondary?.banknifty, vix: useTerminal.getState().snap?.vol?.vix };
+        } else {
+          if (!isAnomaly) anomalyLatched = false; // re-arm once a clean frame passes
+          setSnap(data as Snapshot);
+        }
       } else if (data && (data.error || data.traceback)) {
         // Instrumented backend error — surface it, but KEEP the last good live
         // snapshot on screen. Do NOT clear gotLive: once a live frame has

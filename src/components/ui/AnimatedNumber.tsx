@@ -5,7 +5,6 @@ interface Props {
   format?: (v: number) => string;
   className?: string;
   duration?: number; // ms
-  debugLabel?: string;
 }
 
 // Smoothly rolls from the previous value to the next using rAF easing.
@@ -14,15 +13,8 @@ export function AnimatedNumber({
   format = (v) => v.toFixed(0),
   className = '',
   duration = 600,
-  debugLabel,
 }: Props) {
   const [display, setDisplay] = useState(value);
-  // ---- VOLARA-DBG ----
-  console.log('[VOLARA-DBG AnimatedNumber render]', JSON.stringify({
-    t: Math.round(performance.now()), component: 'AnimatedNumber',
-    fieldName: debugLabel ?? '(unlabeled)', valueProp: value,
-    display, rendered: format(display),
-  }));
   const fromRef = useRef(value);
   const startRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
