@@ -1,11 +1,12 @@
 import type { ComponentType } from 'react';
 import {
-  Layers, Cpu, ShieldAlert, Activity, Globe, PieChart, BookOpen, FlaskConical, Settings,
+  Layers, Cpu, ShieldAlert, Activity, Globe, PieChart, BookOpen, FlaskConical, Settings, CalendarClock,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { WorkspaceId } from '../types';
 
 import { VolatilityTerminal } from './VolatilityTerminal';
+import { MarketEvents } from './MarketEvents';
 import { StrategyLab } from './StrategyLab';
 import { PositionRisk } from './PositionRisk';
 import { MarketBreadth } from './MarketBreadth';
@@ -65,6 +66,14 @@ export const WORKSPACES: WorkspaceDef[] = [
     icon: Globe,
     accent: '#c79bff',
     Component: MacroIntelligence,
+  },
+  {
+    id: 'events',
+    label: 'Market Events',
+    subtitle: 'event risk · IV impact · trading-week score',
+    icon: CalendarClock,
+    accent: '#f04668',
+    Component: MarketEvents,
   },
   {
     id: 'portfolio',

@@ -208,6 +208,7 @@ export interface StrategyRanking {
 // 8 institutional workspaces — the sidebar navigation contract.
 export type WorkspaceId =
   | 'volatility'
+  | 'events'
   | 'strategy'
   | 'risk'
   | 'breadth'
