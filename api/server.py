@@ -30,11 +30,20 @@ from fastapi.responses import JSONResponse
 from quant_engine.config import Config
 from .serializers import build_snapshot, montecarlo
 from .instrument import Probe, capture_exception, DEBUG
+from .macro.router import macro_router, start_macro_refresher
 
 app = FastAPI(title="Quant Terminal API", version="1.0")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
 )
+# Isolated, additive Macro Intelligence subsystem (GET /api/macro). Does not
+# touch the quant engine, the snapshot, or the live-market WebSocket.
+app.include_router(macro_router)
+
+
+@app.on_event("startup")
+async def _start_macro():
+    start_macro_refresher()
 
 STREAM_INTERVAL = float(os.getenv("QT_STREAM_INTERVAL", "2.0"))   # seconds
 MC_EVERY = int(os.getenv("QT_MC_EVERY", "30"))                    # ticks per MC refresh

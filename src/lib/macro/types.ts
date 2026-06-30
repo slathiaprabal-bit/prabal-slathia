@@ -17,6 +17,38 @@ export type MacroSignal = 'RISK_ON' | 'NEUTRAL' | 'RISK_OFF';
 // Where a value comes from — drives the small provenance tag in the UI.
 export type MacroSource = 'live' | 'market' | 'official';
 
+// Institutional-grade transparency: every metric declares exactly how fresh /
+// trustworthy its number is. The UI must never silently show stale data.
+export type MacroStatus =
+  | 'LIVE'          // real-time, fresh
+  | 'DELAYED'       // real source but lagged (EOD / 15-min / last-good)
+  | 'OFFICIAL'      // authoritative slow print, dated
+  | 'MARKET_CLOSED' // last close shown, market shut
+  | 'NO_LIVE_DATA'; // fetch failed, no last-good — value is null, never faked
+
+// Full provenance carried from the backend /api/macro payload (+ live VIX).
+export interface MacroProvenance {
+  value: number | null;
+  previous: number | null;
+  timestamp: string | null; // ISO of the underlying data point
+  freshness: number | null; // age in seconds
+  source: string;           // human label, e.g. "Yahoo Finance", "RBI"
+  confidence: number;       // 0..1
+  status: MacroStatus;
+  asof?: string | null;     // official: release date
+  nextRelease?: string | null; // official: next scheduled release
+}
+
+// Scheduled macro event (Economic Calendar / RBI / FOMC / CPI countdowns).
+export interface MacroEvent {
+  name: string;
+  datetime: string;
+  type: string;
+  importance: string;
+  source: string;
+  secondsUntil: number;
+}
+
 export interface ScoreCtx {
   baseline: number; // reference level for change / scoring context
 }
@@ -41,10 +73,14 @@ export interface MacroIndicatorDef {
 
 export interface MacroReading {
   def: MacroIndicatorDef;
-  value: number;
-  change: number; // vs baseline
-  score: number; // -1..+1
-  signal: MacroSignal;
+  value: number | null;            // null when status is NO_LIVE_DATA
+  previous: number | null;
+  change: number | null;           // vs previous (null when no data)
+  direction: 'up' | 'down' | 'flat';
+  score: number | null;            // -1..+1, null when no data (excluded from regime)
+  signal: MacroSignal | null;
+  prov: MacroProvenance;           // value/timestamp/source/freshness/status/confidence
+  interpretation: string;          // deterministic, rule-based (no LLM)
 }
 
 export interface CategoryScore {
