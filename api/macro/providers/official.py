@@ -1,33 +1,51 @@
-"""OFFICIAL / dated provider — Repo, CPI, GDP, FII, DII, breadth.
+"""OFFICIAL provider — now backed by the scheduled, cached Official Data system.
 
-Reads the operator-maintained config (config_official.py). These are never
-fetched live: they carry the authoritative value plus its release date and next
-scheduled release, with status OFFICIAL, so the UI shows exactly how fresh each
-figure is. To wire a real EOD feed later (e.g. NSE provisional flows), replace
-this one provider — the contract is identical.
+Repo, CPI, GDP, FII, DII and breadth each refresh on their own schedule via
+real sources (NSE for flows; FRED when a key + series are set; seed bootstrap
+otherwise), with a persistent last-good cache. This provider just maps the
+scheduler's cached readings into MacroQuote — the contract the registry, route
+and frontend already consume is unchanged, so badges (OFFICIAL/DELAYED/LIVE)
+render exactly as before.
 """
 from __future__ import annotations
 
+from quant_engine.config import DATA_DIR
+
 from ..base import MacroQuote, OFFICIAL, NO_LIVE_DATA
-from ..config_official import OFFICIAL_FIGURES
+from ..official.scheduler import OfficialScheduler
+from ..official.specs import SPECS
+from ..official.sources import NseFlowsSource, FredSource
 
 
 class OfficialProvider:
-    name = "Official (RBI / MOSPI / NSE)"
+    name = "Official (scheduled)"
+
+    def __init__(self):
+        # Source priority: real auto-sources first, seed is the scheduler's
+        # built-in bootstrap/fallback. Add Bloomberg/Refinitiv/Polygon/RBI here.
+        self.scheduler = OfficialScheduler(
+            specs=SPECS,
+            sources=[NseFlowsSource(), FredSource(SPECS)],
+            cache_path=DATA_DIR / "official_cache.json",
+        )
 
     def fetch(self) -> dict[str, MacroQuote]:
+        try:
+            self.scheduler.tick()   # cheap: only fetches metrics that are due
+        except Exception:
+            pass
         out: dict[str, MacroQuote] = {}
-        for key, rec in OFFICIAL_FIGURES.items():
-            val = rec.get("value")
+        for key, r in self.scheduler.readings().items():
+            has = r.value is not None
             out[key] = MacroQuote(
                 key=key,
-                value=float(val) if val is not None else None,
-                previous=rec.get("previous"),
-                timestamp=rec.get("asof"),
-                source=rec.get("source", self.name),
-                status=OFFICIAL if val is not None else NO_LIVE_DATA,
-                confidence=1.0 if val is not None else 0.0,
-                asof=rec.get("asof"),
-                next_release=rec.get("next_release"),
+                value=r.value,
+                previous=None,
+                timestamp=r.release_date or r.last_updated,
+                source=r.source,
+                status=OFFICIAL if has else NO_LIVE_DATA,
+                confidence=1.0 if has else 0.0,
+                asof=r.release_date,
+                next_release=r.next_release,
             )
         return out

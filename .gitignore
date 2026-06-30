@@ -11,3 +11,7 @@ coverage/
 __pycache__/
 *.pyc
 .venv/
+
+# Runtime macro caches (machine-local provenance state, never committed)
+quant_engine/data/official_cache.json
+quant_engine/data/secondary.json

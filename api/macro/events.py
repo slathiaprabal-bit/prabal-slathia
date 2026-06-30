@@ -1,6 +1,6 @@
 """Scheduled macro events (extensibility seam for Economic Calendar / RBI
 Tracker / FOMC & US-CPI countdowns). These are OFFICIAL, publicly-scheduled
-dates — not fabricated. Maintain alongside config_official.py.
+dates — not fabricated. Maintain alongside api/macro/official/specs.py.
 """
 from __future__ import annotations
 
