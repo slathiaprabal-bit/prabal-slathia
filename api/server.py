@@ -32,6 +32,7 @@ from .serializers import build_snapshot, montecarlo
 from .instrument import Probe, capture_exception, DEBUG
 from .macro.router import macro_router, start_macro_refresher
 from .events.router import events_router, start_events_refresher
+from .marketstructure.router import market_structure_router
 
 app = FastAPI(title="Quant Terminal API", version="1.0")
 app.add_middleware(
@@ -42,6 +43,8 @@ app.add_middleware(
 app.include_router(macro_router)
 # Isolated, additive Market Event Intelligence subsystem (GET /api/events).
 app.include_router(events_router)
+# Single source of truth for index-options expiries (GET /api/market-structure).
+app.include_router(market_structure_router)
 
 
 @app.on_event("startup")

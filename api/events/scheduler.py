@@ -42,11 +42,19 @@ class EventScheduler:
         self.next_check: datetime | None = None
         self._load()
 
+    # Bump when the event schema changes so a stale cache is discarded on load
+    # rather than mixing old and new records (e.g. the per-instrument expiry
+    # refactor superseding the old generic expiry events).
+    CACHE_VERSION = 2
+
     # ── persistence ──
     def _load(self) -> None:
         try:
             if self.cache_path.exists():
                 raw = json.loads(self.cache_path.read_text())
+                if raw.get("version") != self.CACHE_VERSION:
+                    self.cache = {}
+                    return  # schema changed — start fresh, refetch on first tick
                 self.cache = {k: EventRecord.from_dict(v) for k, v in raw.get("events", {}).items()}
                 self.next_check = _parse(raw.get("next_check"))
         except Exception:
@@ -56,6 +64,7 @@ class EventScheduler:
         try:
             self.cache_path.parent.mkdir(parents=True, exist_ok=True)
             self.cache_path.write_text(json.dumps({
+                "version": self.CACHE_VERSION,
                 "next_check": self.next_check.isoformat() if self.next_check else None,
                 "events": {k: r.to_dict() for k, r in self.cache.items()},
             }, indent=2))
