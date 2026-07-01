@@ -1,12 +1,13 @@
 import type { ComponentType } from 'react';
 import {
-  Layers, Cpu, ShieldAlert, Activity, Globe, PieChart, BookOpen, FlaskConical, Settings, CalendarClock,
+  Layers, Cpu, ShieldAlert, Activity, Globe, PieChart, BookOpen, FlaskConical, Settings, CalendarClock, SlidersHorizontal,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { WorkspaceId } from '../types';
 
 import { VolatilityTerminal } from './VolatilityTerminal';
 import { MarketEvents } from './MarketEvents';
+import { AdjustmentStrategist } from './AdjustmentStrategist';
 import { StrategyLab } from './StrategyLab';
 import { PositionRisk } from './PositionRisk';
 import { MarketBreadth } from './MarketBreadth';
@@ -42,6 +43,14 @@ export const WORKSPACES: WorkspaceDef[] = [
     icon: Cpu,
     accent: '#27d17c',
     Component: StrategyLab,
+  },
+  {
+    id: 'adjust',
+    label: 'Adjustment Strategist',
+    subtitle: 'objective-driven adjustment optimizer · scenario sim',
+    icon: SlidersHorizontal,
+    accent: '#27d17c',
+    Component: AdjustmentStrategist,
   },
   {
     id: 'risk',

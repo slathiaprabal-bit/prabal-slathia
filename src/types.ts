@@ -209,6 +209,7 @@ export interface StrategyRanking {
 export type WorkspaceId =
   | 'volatility'
   | 'events'
+  | 'adjust'
   | 'strategy'
   | 'risk'
   | 'breadth'
