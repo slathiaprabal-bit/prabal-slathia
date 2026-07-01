@@ -7,17 +7,19 @@ from __future__ import annotations
 
 MON, TUE, WED, THU, FRI = 0, 1, 2, 3, 4
 
-# Per-instrument expiry structure.
+# Per-instrument market structure (single source of truth).
 #   weekly  : weekday of the weekly expiry, or None if the instrument has none.
 #   monthly : weekday whose LAST occurrence in the month is the monthly expiry.
 #   exchange: NSE | BSE.
+#   lot_size / strike_step: contract lot and listed strike spacing.
+# lot_size and strike_step are SEBI/exchange-revised periodically — keep current.
 INSTRUMENTS: dict[str, dict] = {
-    "NIFTY":      {"exchange": "NSE", "weekly": TUE, "monthly": TUE},
-    "SENSEX":     {"exchange": "BSE", "weekly": THU, "monthly": THU},
-    "BANKNIFTY":  {"exchange": "NSE", "weekly": None, "monthly": TUE},
-    "FINNIFTY":   {"exchange": "NSE", "weekly": None, "monthly": TUE},
-    "MIDCPNIFTY": {"exchange": "NSE", "weekly": None, "monthly": TUE},
-    "BANKEX":     {"exchange": "BSE", "weekly": None, "monthly": THU},
+    "NIFTY":      {"exchange": "NSE", "weekly": TUE, "monthly": TUE, "lot_size": 75, "strike_step": 50},
+    "SENSEX":     {"exchange": "BSE", "weekly": THU, "monthly": THU, "lot_size": 20, "strike_step": 100},
+    "BANKNIFTY":  {"exchange": "NSE", "weekly": None, "monthly": TUE, "lot_size": 35, "strike_step": 100},
+    "FINNIFTY":   {"exchange": "NSE", "weekly": None, "monthly": TUE, "lot_size": 65, "strike_step": 50},
+    "MIDCPNIFTY": {"exchange": "NSE", "weekly": None, "monthly": TUE, "lot_size": 120, "strike_step": 25},
+    "BANKEX":     {"exchange": "BSE", "weekly": None, "monthly": THU, "lot_size": 15, "strike_step": 100},
 }
 
 # IST close — index options settle at 15:30.

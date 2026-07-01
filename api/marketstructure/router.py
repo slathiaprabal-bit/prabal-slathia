@@ -27,7 +27,10 @@ def get_market_structure():
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "instruments": {
-            inst: {"exchange": cfg["exchange"], "weekly": cfg["weekly"], "monthly": cfg["monthly"]}
+            inst: {
+                "exchange": cfg["exchange"], "weekly": cfg["weekly"], "monthly": cfg["monthly"],
+                "lotSize": cfg["lot_size"], "strikeStep": cfg["strike_step"],
+            }
             for inst, cfg in INSTRUMENTS.items()
         },
         "nextByInstrument": next_by_instrument,

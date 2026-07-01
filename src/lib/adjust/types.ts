@@ -13,8 +13,23 @@ export interface Position {
   dte: number;       // calendar days to expiry
   rate: number;      // risk-free decimal
   lotSize: number;
+  strikeStep: number;
+  instrument: string;
+  exchange: string;
   regime: string;
   label: string;     // e.g. "Short Strangle" / "Iron Condor"
+}
+
+// A position as loaded by the user (broker import / open existing / manual).
+export type PositionSource = 'BROKER' | 'STRATEGY_LAB' | 'MANUAL';
+export interface LoadedLeg { kind: OptKind; strike: number; qty: number; entry?: number; }
+export interface LoadedPosition {
+  instrument: string;
+  legs: LoadedLeg[];
+  label: string;
+  source: PositionSource;
+  spot?: number;     // explicit (manual) override
+  iv?: number;       // explicit (manual) override, in vol points
 }
 
 export type AdjMode = 'DEFENSIVE' | 'THETA' | 'CRASH' | 'VOL';
@@ -28,7 +43,8 @@ export interface Metrics {
   maxProfit: number;  // ₹, P&L-from-now over the scanned range
   maxLoss: number;    // ₹ (negative)
   margin: number;     // ₹ estimated
-  tailPayoff: number; // ₹ P&L at spot −600 at expiry (crash convexity)
+  tailPayoff: number; // ₹ P&L at a ~2σ downside move at expiry (crash convexity)
+  tailMove: number;   // the downside move used (points), instrument-scaled
   adjustCost: number; // ₹ net debit(−)/credit(+) to enter the adjustment
   breakevens: number[];
 }

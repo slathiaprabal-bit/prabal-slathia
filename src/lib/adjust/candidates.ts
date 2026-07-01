@@ -5,13 +5,12 @@ import type { Leg, Position } from './types';
 
 export interface RawCandidate { id: string; label: string; addedLegs: Leg[]; }
 
-const STEP = 100;   // NIFTY strike spacing
-const SPAN = 34;    // ±34 strikes ≈ ±14%
+const SPAN = 34;    // ±34 strikes each side
 
-function strikeGrid(spot: number): number[] {
-  const atm = Math.round(spot / STEP) * STEP;
+function strikeGrid(spot: number, step: number): number[] {
+  const atm = Math.round(spot / step) * step;
   const out: number[] = [];
-  for (let i = -SPAN; i <= SPAN; i++) out.push(atm + i * STEP);
+  for (let i = -SPAN; i <= SPAN; i++) out.push(atm + i * step);
   return out;
 }
 
@@ -27,7 +26,8 @@ export function mergeLegs(legs: Leg[]): Leg[] {
 }
 
 export function generate(pos: Position): RawCandidate[] {
-  const ks = strikeGrid(pos.spot);
+  const STEP = pos.strikeStep;
+  const ks = strikeGrid(pos.spot, STEP);
   const spot = pos.spot;
   const puts = ks.filter((k) => k <= spot);
   const calls = ks.filter((k) => k >= spot);

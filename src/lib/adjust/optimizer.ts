@@ -66,7 +66,7 @@ function reason(mode: AdjMode, m: Metrics, b: Metrics, pos: Position, vol: VolCo
       r.push(`Margin impact ${sgn(m.margin - b.margin)}${inr(m.margin - b.margin)}`);
       break;
     case 'CRASH':
-      r.push(`Downside (−600 pts) pays ${inr(m.tailPayoff)} vs ${inr(b.tailPayoff)} now — convex`);
+      r.push(`Downside (−${Math.round(m.tailMove)} pts) pays ${inr(m.tailPayoff)} vs ${inr(b.tailPayoff)} now — convex`);
       r.push(`Theta stays ${m.theta >= 0 ? 'positive' : 'negative'} at ${inr(m.theta)}/day`);
       r.push(`Controlled risk: max loss ${inr(m.maxLoss)}, net ${m.adjustCost >= 0 ? 'credit' : 'debit'} ${inr(Math.abs(m.adjustCost))}`);
       break;

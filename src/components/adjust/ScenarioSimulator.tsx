@@ -31,33 +31,22 @@ export function ScenarioSimulator({ position, base, candidates }: {
   const zeroY = y(0);
 
   return (
-    <div className="flex h-full min-h-0 gap-3">
-      {/* controls + legend */}
-      <div className="flex w-40 shrink-0 flex-col gap-2">
-        <div className="cell px-2.5 py-2">
+    <div className="flex h-full min-h-0 flex-col gap-2">
+      {/* controls */}
+      <div className="grid grid-cols-2 gap-1.5">
+        <div className="cell px-2.5 py-1.5">
           <div className="flex items-center justify-between">
             <span className="eyebrow text-[7.5px]">IV SHIFT</span>
-            <span className="mono text-[11px] font-bold" style={{ color: ivShift >= 0 ? 'var(--pos)' : 'var(--neg)' }}>{ivShift >= 0 ? '+' : ''}{ivShift} pts</span>
+            <span className="mono text-[10px] font-bold" style={{ color: ivShift >= 0 ? 'var(--pos)' : 'var(--neg)' }}>{ivShift >= 0 ? '+' : ''}{ivShift}pt</span>
           </div>
           <input type="range" min={-8} max={8} value={ivShift} onChange={(e) => setIvShift(Number(e.target.value))} className="mt-1 w-full accent-[color:var(--violet)]" />
         </div>
-        <div className="cell px-2.5 py-2">
+        <div className="cell px-2.5 py-1.5">
           <div className="flex items-center justify-between">
             <span className="eyebrow text-[7.5px]">DAYS LEFT</span>
-            <span className="mono text-[11px] font-bold text-[color:var(--text)]">{days}d</span>
+            <span className="mono text-[10px] font-bold text-[color:var(--text)]">{days}d</span>
           </div>
           <input type="range" min={0} max={position.dte} value={days} onChange={(e) => setDays(Number(e.target.value))} className="mt-1 w-full accent-[color:var(--gold)]" />
-        </div>
-        <div className="flex flex-col gap-1">
-          {curves.map((s) => (
-            <div key={s.name} className="flex items-center gap-1.5 text-[9px]">
-              <span className="h-0.5 w-3 rounded-full" style={{ background: s.color }} />
-              <span className="text-[color:var(--dim)]">{s.name}</span>
-            </div>
-          ))}
-        </div>
-        <div className="mt-auto text-[7.5px] leading-snug text-[color:var(--faint)]">
-          P&amp;L vs current mark across ±8% moves, at the chosen IV shift and days remaining.
         </div>
       </div>
 
@@ -75,12 +64,19 @@ export function ScenarioSimulator({ position, base, candidates }: {
         <div className="mono mt-0.5 flex justify-between text-[7.5px] text-[color:var(--faint)]">
           <span>−8%</span><span>spot {position.spot.toLocaleString('en-IN')}</span><span>+8%</span>
         </div>
-        <div className="mono mt-0.5 flex flex-wrap justify-center gap-x-3 text-[8px]">
-          {curves.map((s) => {
-            const atDown = s.pts[Math.floor(s.pts.length * 0.15)]?.pnl ?? 0; // ~−5.5%
-            return <span key={s.name} style={{ color: s.color }}>{s.name} @−5%: {inr(atDown)}</span>;
-          })}
-        </div>
+      </div>
+
+      {/* legend + per-series @−5% readout */}
+      <div className="mono flex flex-col gap-0.5 text-[8px]">
+        {curves.map((s) => {
+          const atDown = s.pts[Math.floor(s.pts.length * 0.15)]?.pnl ?? 0;
+          return (
+            <div key={s.name} className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5"><span className="h-0.5 w-3 rounded-full" style={{ background: s.color }} /><span className="text-[color:var(--dim)]">{s.name}</span></span>
+              <span style={{ color: s.color }}>@−5%: {inr(atDown)}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -82,11 +82,13 @@ export function computeMetrics(resultLegs: Leg[], added: Leg[], pos: Position, g
   const definedLoss = Math.abs(maxLoss);
   const margin = Math.max(0, Math.min(span || definedLoss, definedLoss || span));
 
-  const tailPayoff = payoffFromNow(resultLegs, pos.spot - 600, pos);
+  // Downside "crash" reference scaled to the instrument: ~2σ expected move.
+  const tailMove = Math.round(2 * pos.spot * pos.iv * Math.sqrt(pos.dte / 365));
+  const tailPayoff = payoffFromNow(resultLegs, pos.spot - tailMove, pos);
 
   return {
     theta: g.theta, delta: g.delta, gamma: g.gamma, vega: g.vega,
-    pop, maxProfit, maxLoss, margin, tailPayoff,
+    pop, maxProfit, maxLoss, margin, tailPayoff, tailMove,
     adjustCost: adjustCost(added, pos), breakevens,
   };
 }

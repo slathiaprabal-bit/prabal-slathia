@@ -49,6 +49,6 @@ export function metricRows(m: Metrics): { label: string; value: string; color?: 
     { label: 'MARGIN', value: inr(m.margin), color: 'var(--text)' },
     { label: 'MAX PROFIT', value: inr(m.maxProfit), color: 'var(--pos)' },
     { label: 'MAX LOSS', value: inr(m.maxLoss), color: 'var(--neg)' },
-    { label: 'TAIL (−600)', value: inr(m.tailPayoff), color: dcol(m.tailPayoff) },
+    { label: `TAIL (−${Math.round(m.tailMove)})`, value: inr(m.tailPayoff), color: dcol(m.tailPayoff) },
   ];
 }
