@@ -94,6 +94,41 @@ export function generate(pos: Position): RawCandidate[] {
       ]);
     }
   }
+  // L — debit put spread (cheap, defined downside hedge): buy near / sell far.
+  for (const ka of puts) for (const kb of puts) {
+    if (kb < ka && ka <= spot && ka - kb <= 8 * STEP && ka - kb >= 1 * STEP) {
+      push(`Debit put spread buy ${ka} / sell ${kb} (downside hedge)`, [
+        { kind: 'P', strike: ka, qty: 1 }, { kind: 'P', strike: kb, qty: -1 },
+      ]);
+    }
+  }
+  // M — debit call spread (cheap, defined upside hedge).
+  for (const ka of calls) for (const kb of calls) {
+    if (kb > ka && ka >= spot && kb - ka <= 8 * STEP && kb - ka >= 1 * STEP) {
+      push(`Debit call spread buy ${ka} / sell ${kb} (upside hedge)`, [
+        { kind: 'C', strike: ka, qty: 1 }, { kind: 'C', strike: kb, qty: -1 },
+      ]);
+    }
+  }
+  // N — broken-wing put butterfly (cheap convex downside, capped tail risk).
+  for (const kb of puts) {
+    if (kb >= spot || spot - kb > 10 * STEP) continue;
+    for (const w1 of [2, 3]) for (const w2 of [4, 6]) {
+      const kA = kb + w1 * STEP, kC = kb - w2 * STEP;
+      if (kC <= 0 || kA > spot) continue;
+      push(`Broken-wing put fly ${kA}/${kb}/${kC}`, [
+        { kind: 'P', strike: kA, qty: 1 }, { kind: 'P', strike: kb, qty: -2 }, { kind: 'P', strike: kC, qty: 1 },
+      ]);
+    }
+  }
+  // O — long straddle (vol expansion): buy ATM call + put.
+  {
+    const atm = Math.round(spot / STEP) * STEP;
+    push(`Long ${atm} straddle (vega+)`, [
+      { kind: 'C', strike: atm, qty: 1 }, { kind: 'P', strike: atm, qty: 1 },
+    ]);
+  }
+
   // J/K — roll existing short legs to new strikes.
   for (const base of pos.legs) {
     if (base.qty >= 0) continue;

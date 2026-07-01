@@ -3,8 +3,9 @@ import { useTerminal } from '../../store';
 import { useEvents } from '../events/useEvents';
 import { useMarketStructure } from './instruments';
 import { buildPosition } from './position';
+import { computeMetrics } from './metrics';
 import { optimize } from './optimizer';
-import type { AdjMode, LoadedPosition, VolContext } from './types';
+import type { AdjMode, Aggressiveness, LoadedPosition, MarketThesis, OptimizeConfig, VolContext } from './types';
 
 export function useAdjust() {
   const snap = useTerminal((s) => s.snap);
@@ -13,6 +14,8 @@ export function useAdjust() {
 
   const [loaded, setLoaded] = useState<LoadedPosition | null>(null);
   const [mode, setMode] = useState<AdjMode>('DEFENSIVE');
+  const [thesis, setThesis] = useState<MarketThesis | null>(null);   // STEP 1 — mandatory before ranking
+  const [aggressiveness, setAggressiveness] = useState<Aggressiveness>('BALANCED');
   const [dte, setDte] = useState<number | null>(null);   // null until a position loads
 
   const instParams = loaded && params ? params[loaded.instrument] ?? null : null;
@@ -54,9 +57,18 @@ export function useAdjust() {
     [expansionExpected, contractionExpected, driverName],
   );
 
+  // Base metrics exist as soon as a position is built — independent of thesis,
+  // so the Position Summary renders before the trader picks a view.
+  const baseMetrics = useMemo(() => (position ? computeMetrics(position.legs, [], position) : null), [position]);
+
+  // STEP 1/9 — no thesis, no ranking. The engine reads intent before it optimizes.
+  const config = useMemo<OptimizeConfig | null>(
+    () => (thesis ? { mode, thesis, aggressiveness, vol, retainThreshold: 0.30 } : null),
+    [mode, thesis, aggressiveness, vol],
+  );
   const result = useMemo(
-    () => (position ? optimize(position, mode, vol, 6) : null),
-    [position, mode, vol],
+    () => (position && config ? optimize(position, config, 6) : null),
+    [position, config],
   );
 
   const upcoming = useMemo(() => {
@@ -66,8 +78,8 @@ export function useAdjust() {
   }, [events, effectiveDte]);
 
   return {
-    loaded, setLoaded, reset: () => setLoaded(null),
-    position, result, mode, setMode, dte: effectiveDte, setDte,
-    vol, params, expiries, instParams, degraded, snap, upcoming,
+    loaded, setLoaded, reset: () => { setLoaded(null); setThesis(null); },
+    position, baseMetrics, result, mode, setMode, thesis, setThesis, aggressiveness, setAggressiveness,
+    dte: effectiveDte, setDte, vol, params, expiries, instParams, degraded, snap, upcoming,
   };
 }

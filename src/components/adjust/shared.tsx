@@ -1,10 +1,28 @@
-import type { AdjMode, Leg, Metrics } from '../../lib/adjust/types';
+import type { AdjMode, Aggressiveness, AdjustmentAnalysis, Leg, MarketThesis, Metrics } from '../../lib/adjust/types';
 
 export const MODE_META: Record<AdjMode, { label: string; blurb: string; color: string }> = {
-  DEFENSIVE: { label: 'Defensive', blurb: 'Minimize loss · cut gamma/vega · max POP', color: 'var(--info)' },
-  THETA: { label: 'Theta Max', blurb: 'Max theta · delta-neutral · min margin', color: 'var(--pos)' },
-  CRASH: { label: 'Crash Opportunity', blurb: 'Convex downside · keep theta · controlled risk', color: 'var(--neg)' },
-  VOL: { label: 'Volatility Trader', blurb: 'Position for IV expansion / contraction', color: 'var(--violet)' },
+  DEFENSIVE: { label: 'Defensive', blurb: 'Cut max loss · gamma/vega · margin — keep direction', color: 'var(--info)' },
+  THETA: { label: 'Theta Max', blurb: 'Max theta/day · delta-neutral · theta per ₹ margin', color: 'var(--pos)' },
+  CRASH: { label: 'Crash Opportunity', blurb: 'Protect profit, then cheap convex downside', color: 'var(--neg)' },
+  VOL: { label: 'Volatility Trader', blurb: 'Long vega for IV expansion — theta ignored', color: 'var(--violet)' },
+};
+
+// STEP 1 — the eight market theses, in trader order (bearish → bullish → vol).
+export const THESIS_META: Record<MarketThesis, { label: string; hint: string; color: string }> = {
+  STRONG_BEARISH: { label: 'Strong Bearish', hint: '400–1000 pt correction', color: 'var(--neg)' },
+  MILD_BEARISH: { label: 'Mild Bearish', hint: '~1σ drift lower', color: '#ff8c42' },
+  NEUTRAL: { label: 'Neutral / Sideways', hint: 'pins near spot', color: 'var(--gold)' },
+  MILD_BULLISH: { label: 'Mild Bullish', hint: '~1σ drift higher', color: '#7bd88f' },
+  STRONG_BULLISH: { label: 'Strong Bullish', hint: 'sharp rally', color: 'var(--pos)' },
+  VOL_EXPANSION: { label: 'High Vol Expansion', hint: 'big move, either way', color: 'var(--violet)' },
+  THETA_DECAY: { label: 'Low Vol / Theta Decay', hint: 'grind, IV bleeds', color: 'var(--info)' },
+  NO_VIEW: { label: 'No View', hint: 'pure risk optimization', color: 'var(--dim)' },
+};
+
+export const AGGR_META: Record<Aggressiveness, { label: string; hint: string }> = {
+  CONSERVATIVE: { label: 'Conservative', hint: 'retain 90% profit' },
+  BALANCED: { label: 'Balanced', hint: 'retain 70% profit' },
+  AGGRESSIVE: { label: 'Aggressive', hint: 'maximize convexity' },
 };
 
 // Compact ₹ formatting.
@@ -50,5 +68,22 @@ export function metricRows(m: Metrics): { label: string; value: string; color?: 
     { label: 'MAX PROFIT', value: inr(m.maxProfit), color: 'var(--pos)' },
     { label: 'MAX LOSS', value: inr(m.maxLoss), color: 'var(--neg)' },
     { label: `TAIL (−${Math.round(m.tailMove)})`, value: inr(m.tailPayoff), color: dcol(m.tailPayoff) },
+  ];
+}
+
+// STEP 5 — the institutional adjustment read (cost + trader deltas), not just P&L.
+export function traderRows(a: AdjustmentAnalysis): { label: string; value: string; color?: string; hint?: string }[] {
+  const dcol = (v: number) => (v >= 0 ? 'var(--pos)' : 'var(--neg)');
+  const retCol = a.profitRetained >= 0.9 ? 'var(--pos)' : a.profitRetained >= 0.7 ? 'var(--gold)' : 'var(--neg)';
+  return [
+    { label: 'ADJ. COST', value: `${a.adjustCost >= 0 ? 'credit ' : 'debit '}${inr(Math.abs(a.adjustCost))}`, color: dcol(a.adjustCost) },
+    { label: 'PREMIUM PAID', value: inr(a.premiumPaid) },
+    { label: 'MARGIN Δ', value: `${a.marginChange >= 0 ? '+' : ''}${inr(a.marginChange)}`, color: a.marginChange <= 0 ? 'var(--pos)' : 'var(--text)' },
+    { label: 'THETA Δ', value: `${inr(a.thetaChange)}/d`, color: dcol(a.thetaChange) },
+    { label: 'VEGA Δ', value: `${inr(a.vegaChange)}/pt`, color: dcol(a.vegaChange) },
+    { label: 'DELTA Δ', value: `${a.deltaChange >= 0 ? '+' : ''}${a.deltaChange.toFixed(0)}/pt` },
+    { label: 'PROFIT RETAINED', value: `${Math.round(a.profitRetained * 100)}%`, color: retCol, hint: `${inr(a.expProfitAfter)} vs ${inr(a.expProfitBase)}` },
+    { label: 'SCENARIO GAIN', value: inr(a.scenarioGain), color: dcol(a.scenarioGain), hint: a.scenarioLabel },
+    { label: 'OPP. EFFICIENCY', value: `${a.opportunityEfficiency.toFixed(1)}×`, color: a.opportunityEfficiency >= 3 ? 'var(--pos)' : a.opportunityEfficiency >= 1 ? 'var(--gold)' : 'var(--neg)' },
   ];
 }

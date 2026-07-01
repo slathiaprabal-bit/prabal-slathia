@@ -1,8 +1,10 @@
-// Generate → price → score → rank. Produces the top adjustments with reasoning.
+// Generate → price → analyze → score like a trader → rank. Reads the Market
+// Thesis first (target scenario), then ranks on the five trader priorities with
+// existing winners protected. Not a raw objective maximizer.
 import { generate, mergeLegs } from './candidates';
 import { computeMetrics } from './metrics';
-import { rawScore } from './score';
-import type { AdjMode, Candidate, Leg, Metrics, Position, VolContext } from './types';
+import { analyzeCandidate, buildNorms, componentScores, targetScenario } from './score';
+import type { AdjMode, AdjustmentAnalysis, Candidate, Leg, Metrics, OptimizeConfig, Position } from './types';
 
 export interface OptimizeResult {
   baseLegs: Leg[];
@@ -14,72 +16,94 @@ export interface OptimizeResult {
 
 const inr = (v: number) => `₹${Math.round(v).toLocaleString('en-IN')}`;
 const sgn = (v: number) => (v >= 0 ? '+' : '');
+const pct = (v: number) => `${Math.round(v * 100)}%`;
 
-export function optimize(pos: Position, mode: AdjMode, vol: VolContext, topK = 6): OptimizeResult {
+export function optimize(pos: Position, cfg: OptimizeConfig, topK = 6): OptimizeResult {
   const baseMetrics = computeMetrics(pos.legs, [], pos);
+  const target = targetScenario(cfg.mode, cfg.thesis, pos);
   const raws = generate(pos);
 
-  // Bulk pass on a coarse grid for speed; top-K recomputed on the fine grid.
-  const scored: { c: { id: string; label: string; addedLegs: Leg[] }; result: Leg[]; m: Metrics; raw: number }[] = [];
+  // Pass 1 — price + analyze every candidate on a coarse grid.
+  type Row = { c: { id: string; label: string; addedLegs: Leg[] }; result: Leg[]; m: Metrics; a: AdjustmentAnalysis };
+  const rows: Row[] = [];
   for (const rc of raws) {
     const result = mergeLegs([...pos.legs, ...rc.addedLegs]);
     if (result.length === 0 || result.length > 8) continue;
     const m = computeMetrics(result, rc.addedLegs, pos, 81);
-    const raw = rawScore(mode, m, baseMetrics, pos, vol);
-    if (!isFinite(raw)) continue;
-    scored.push({ c: rc, result, m, raw });
+    const a = analyzeCandidate(result, m, baseMetrics, pos, cfg, target);
+    rows.push({ c: rc, result, m, a });
   }
-  if (scored.length === 0) {
-    return { baseLegs: pos.legs, baseMetrics, candidates: [], evaluated: 0, mode };
+  if (rows.length === 0) {
+    return { baseLegs: pos.legs, baseMetrics, candidates: [], evaluated: 0, mode: cfg.mode };
   }
 
-  const rmin = Math.min(...scored.map((s) => s.raw));
-  const rmax = Math.max(...scored.map((s) => s.raw));
-  const norm = (r: number) => (rmax > rmin ? (100 * (r - rmin)) / (rmax - rmin) : 50);
+  // Pass 2 — normalize across the set, then apply the trader-weighted score.
+  const norms = buildNorms(rows, baseMetrics);
+  const scored = rows.map((r) => {
+    const { breakdown, score } = componentScores(r.a, r.m, baseMetrics, r.c.addedLegs, pos, cfg, norms);
+    r.a.breakdown = breakdown;
+    return { ...r, score, flagged: r.a.flags.length > 0 };
+  });
 
-  scored.sort((a, b) => b.raw - a.raw);
-  const candidates: Candidate[] = scored.slice(0, topK).map((s) => ({
-    id: s.c.id,
-    label: s.c.label,
-    addedLegs: s.c.addedLegs,
-    resultLegs: s.result,
-    metrics: computeMetrics(s.result, s.c.addedLegs, pos, 161),  // fine grid for display
-    score: Math.round(norm(s.raw)),
-    reasoning: reason(mode, computeMetrics(s.result, s.c.addedLegs, pos, 161), baseMetrics, pos, vol),
-  }));
+  // Rank: a flagged (winner-at-risk) adjustment never outranks a clean one (STEP 7).
+  scored.sort((x, y) => (x.flagged === y.flagged ? y.score - x.score : x.flagged ? 1 : -1));
 
-  return { baseLegs: pos.legs, baseMetrics, candidates, evaluated: scored.length, mode };
+  // Surface variety, not ten near-identical strikes of one structure: cap each
+  // structure family (kinds × signs) to two entries in the shortlist.
+  const famCount = new Map<string, number>();
+  const family = (legs: Leg[]) => legs.map((l) => `${l.kind}${l.qty > 0 ? '+' : '-'}${Math.abs(l.qty)}`).sort().join(',');
+  const shortlist: typeof scored = [];
+  for (const s of scored) {
+    const f = family(s.c.addedLegs);
+    const n = famCount.get(f) ?? 0;
+    if (n >= 2) continue;
+    famCount.set(f, n + 1);
+    shortlist.push(s);
+    if (shortlist.length >= topK) break;
+  }
+
+  const candidates: Candidate[] = shortlist.map((s) => {
+    const fine = computeMetrics(s.result, s.c.addedLegs, pos, 161);   // fine grid for display
+    return {
+      id: s.c.id, label: s.c.label, addedLegs: s.c.addedLegs, resultLegs: s.result,
+      metrics: fine, analysis: s.a, score: Math.round(s.score * 100), flagged: s.flagged,
+      reasoning: reason(cfg, s.a, fine, baseMetrics),
+    };
+  });
+
+  return { baseLegs: pos.legs, baseMetrics, candidates, evaluated: scored.length, mode: cfg.mode };
 }
 
-function reason(mode: AdjMode, m: Metrics, b: Metrics, pos: Position, vol: VolContext): string[] {
+// Trader-facing rationale — leads with capital preservation + the thesis scenario.
+function reason(cfg: OptimizeConfig, a: AdjustmentAnalysis, m: Metrics, b: Metrics): string[] {
   const r: string[] = [];
-  const dTheta = m.theta - b.theta, dPop = (m.pop - b.pop) * 100, dVega = m.vega - b.vega;
-  switch (mode) {
+  const spend = a.premiumPaid > 0 ? `debit ${inr(a.premiumPaid)}` : `credit ${inr(a.adjustCost)}`;
+
+  if (a.expProfitBase > 1) {
+    r.push(`Retains ${pct(a.profitRetained)} of the ₹${Math.round(a.expProfitBase).toLocaleString('en-IN')} pinned profit`);
+  }
+
+  switch (cfg.mode) {
+    case 'CRASH':
+      r.push(`${inr(a.scenarioGain)} extra at ${a.scenarioLabel} for ${spend} — efficiency ${a.opportunityEfficiency.toFixed(1)}×`);
+      r.push(`Theta ${a.thetaChange >= 0 ? 'held' : 'costs'} ${inr(a.thetaChange)}/d → ${inr(m.theta)}/d`);
+      break;
     case 'DEFENSIVE':
-      r.push(`Lifts POP to ${(m.pop * 100).toFixed(0)}% (${sgn(dPop)}${dPop.toFixed(0)} pts)`);
-      r.push(`Caps max loss at ${inr(m.maxLoss)} (was ${inr(b.maxLoss)})`);
-      r.push(`Cuts gamma/vega risk; residual delta ${m.delta.toFixed(0)}/pt`);
+      r.push(`POP ${sgn((m.pop - b.pop) * 100)}${((m.pop - b.pop) * 100).toFixed(0)}pts → ${pct(m.pop)}; max loss ${inr(m.maxLoss)}`);
+      r.push(`Cuts vega ${inr(a.vegaChange)}/pt, delta ${sgn(a.deltaChange)}${a.deltaChange.toFixed(0)}/pt for ${spend}`);
       break;
     case 'THETA':
-      r.push(`Adds ${inr(dTheta)}/day theta → ${inr(m.theta)}/day total`);
-      r.push(`Keeps delta near-neutral (${m.delta.toFixed(0)}/pt)`);
-      r.push(`Margin impact ${sgn(m.margin - b.margin)}${inr(m.margin - b.margin)}`);
-      break;
-    case 'CRASH':
-      r.push(`Downside (−${Math.round(m.tailMove)} pts) pays ${inr(m.tailPayoff)} vs ${inr(b.tailPayoff)} now — convex`);
-      r.push(`Theta stays ${m.theta >= 0 ? 'positive' : 'negative'} at ${inr(m.theta)}/day`);
-      r.push(`Controlled risk: max loss ${inr(m.maxLoss)}, net ${m.adjustCost >= 0 ? 'credit' : 'debit'} ${inr(Math.abs(m.adjustCost))}`);
+      r.push(`Adds ${inr(a.thetaChange)}/d theta → ${inr(m.theta)}/d at ${inr(a.marginChange)} margin`);
+      r.push(`Theta/margin ${(m.theta / (m.margin + 1) * 1e5).toFixed(1)} per ₹1L; delta ${m.delta.toFixed(0)}/pt`);
       break;
     case 'VOL':
-      if (vol.expansionExpected) {
-        r.push(`Long vega ${inr(m.vega)}/pt (${sgn(dVega)}${inr(dVega)}) into ${vol.driverEvent ?? 'expected IV expansion'}`);
-        r.push(`Positioned for pre-event IV bid; delta ${m.delta.toFixed(0)}/pt`);
-      } else {
-        r.push(`Short vega ${inr(m.vega)}/pt for IV contraction; theta ${inr(m.theta)}/day`);
-        r.push(`Harvests rich premium; delta ${m.delta.toFixed(0)}/pt`);
-      }
-      r.push(`POP ${(m.pop * 100).toFixed(0)}%, margin ${inr(m.margin)}`);
+      r.push(`Long vega ${sgn(a.vegaChange)}${inr(a.vegaChange)}/pt; ${inr(a.scenarioGain)} in a ${a.scenarioLabel} move`);
+      r.push(`Positioned for IV expansion for ${spend}; delta ${m.delta.toFixed(0)}/pt`);
       break;
   }
+
+  const b0 = a.breakdown;
+  r.push(`Score mix — capital ${pct(b0.capital)} · objective ${pct(b0.objective)} · cost ${pct(b0.cost)} · risk ${pct(b0.risk)} · simple ${pct(b0.simplicity)}`);
+  for (const f of a.flags) r.push(`⚠ ${f}`);
   return r;
 }

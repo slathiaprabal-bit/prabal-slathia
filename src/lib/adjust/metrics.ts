@@ -20,6 +20,24 @@ export function payoffFromNow(legs: Leg[], sT: number, pos: Position): number {
   return pnl;
 }
 
+// "Expected expiry profit" over the core ±Nσ zone where a premium-seller expects
+// to live — density-weighted so the single-point pin can't be gamed by ratio
+// structures that dig a hidden loss valley just off spot. This is the winner the
+// engine protects (STEP 7): the profit tent, not one price.
+export function coreProfit(legs: Leg[], pos: Position, sigmas = 1): number {
+  const sigma = pos.spot * pos.iv * Math.sqrt(pos.dte / 365);
+  const lo = Math.max(1, pos.spot - sigmas * sigma), hi = pos.spot + sigmas * sigma;
+  const N = 25;
+  let sum = 0, w = 0;
+  for (let i = 0; i < N; i++) {
+    const sT = lo + (hi - lo) * (i / (N - 1));
+    const d = lognormalPdf(sT, pos.spot, pos.iv, pos.dte / 365, pos.rate);
+    sum += payoffFromNow(legs, sT, pos) * d;
+    w += d;
+  }
+  return w > 0 ? sum / w : payoffFromNow(legs, pos.spot, pos);
+}
+
 // Net position greeks in ₹ terms.
 export function greeks(legs: Leg[], pos: Position) {
   let delta = 0, gamma = 0, theta = 0, vega = 0;

@@ -37,6 +37,43 @@ export interface LoadedPosition {
 
 export type AdjMode = 'DEFENSIVE' | 'THETA' | 'CRASH' | 'VOL';
 
+// STEP 1 — the trader's market thesis. The primary constraint the engine reads
+// BEFORE ranking: it defines the target scenario adjustments are optimized for.
+export type MarketThesis =
+  | 'STRONG_BEARISH' | 'MILD_BEARISH' | 'NEUTRAL' | 'MILD_BULLISH'
+  | 'STRONG_BULLISH' | 'VOL_EXPANSION' | 'THETA_DECAY' | 'NO_VIEW';
+
+// STEP 3 — how much current profit the trader will spend for convexity.
+export type Aggressiveness = 'CONSERVATIVE' | 'BALANCED' | 'AGGRESSIVE';
+
+export interface OptimizeConfig {
+  mode: AdjMode;
+  thesis: MarketThesis;
+  aggressiveness: Aggressiveness;
+  vol: VolContext;
+  retainThreshold: number;   // flag when expiry profit drops > this (default 0.30)
+}
+
+// STEP 5/7/8 — the institutional read on a single adjustment, relative to the
+// current position and the trader's target scenario.
+export interface AdjustmentAnalysis {
+  adjustCost: number;            // credit(+) / debit(-) ₹
+  premiumPaid: number;           // ₹ paid (0 when a credit)
+  marginChange: number;          // ₹ vs current
+  thetaChange: number;           // ₹/day vs current
+  vegaChange: number;            // ₹/pt vs current
+  deltaChange: number;           // ₹/pt vs current
+  expProfitBase: number;         // ₹ expiry profit if pinned at spot — current
+  expProfitAfter: number;        // ₹ expiry profit if pinned at spot — adjusted
+  profitRetained: number;        // ratio, 1 = fully retained
+  scenarioGain: number;          // ₹ extra profit in the thesis target scenario
+  directionalProtect: number;    // ₹ asymmetric help toward the threatened side (credit cancels out)
+  scenarioLabel: string;         // e.g. "−2σ (−512)"
+  opportunityEfficiency: number; // scenarioGain ÷ premium (floored)
+  breakdown: { capital: number; objective: number; cost: number; risk: number; simplicity: number };
+  flags: string[];               // winner-at-risk / constraint warnings
+}
+
 export interface Metrics {
   theta: number;      // ₹ per day (position)
   delta: number;      // ₹ per 1 pt underlying
@@ -58,7 +95,9 @@ export interface Candidate {
   addedLegs: Leg[];
   resultLegs: Leg[];
   metrics: Metrics;
-  score: number;          // 0..100 (mode-weighted)
+  analysis: AdjustmentAnalysis;
+  score: number;          // 0..100 (institutional trader-weighted)
+  flagged: boolean;       // winner-at-risk — never ranked #1 over a clean option
   reasoning: string[];
 }
 
