@@ -41,6 +41,7 @@ export function AdjustmentStrategist() {
       <Panel title="Thesis → Objective → Constraints" accent={accent} className="col-start-1 col-span-4 row-start-4 row-span-3" delay={0.08}>
         <ModeBar mode={mode} setMode={setMode} thesis={thesis} setThesis={a.setThesis}
           aggressiveness={aggressiveness} setAggressiveness={a.setAggressiveness}
+          preferProtection={a.preferProtection} setPreferProtection={a.setPreferProtection}
           dte={dte} setDte={setDte} position={position} evaluated={result?.evaluated ?? 0} onReset={a.reset} degraded={degraded} />
       </Panel>
 

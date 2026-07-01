@@ -6,10 +6,11 @@ const AGGRS = Object.keys(AGGR_META) as Aggressiveness[];
 
 // The institutional flow: Market Thesis → Trader Objective → Constraints → Optimization.
 export function ModeBar({ mode, setMode, thesis, setThesis, aggressiveness, setAggressiveness,
-  dte, setDte, position, evaluated, onReset, degraded }: {
+  preferProtection, setPreferProtection, dte, setDte, position, evaluated, onReset, degraded }: {
   mode: AdjMode; setMode: (m: AdjMode) => void;
   thesis: MarketThesis | null; setThesis: (t: MarketThesis) => void;
   aggressiveness: Aggressiveness; setAggressiveness: (a: Aggressiveness) => void;
+  preferProtection: boolean; setPreferProtection: (v: boolean) => void;
   dte: number; setDte: (d: number) => void;
   position: Position; evaluated: number; onReset: () => void; degraded: boolean;
 }) {
@@ -51,6 +52,28 @@ export function ModeBar({ mode, setMode, thesis, setThesis, aggressiveness, setA
           );
         })}
       </div>
+
+      {/* Defensive: capital-efficient by default; opt in to pay for protection.
+          (The engine also auto-prefers protection when the book is threatened or
+          vol is expected to expand.) */}
+      {mode === 'DEFENSIVE' && (
+        <>
+          <div className="eyebrow mt-0.5 text-[8px]">3 · PROTECTION STANCE</div>
+          <div className="grid grid-cols-2 gap-1">
+            {([[false, 'Capital-Efficient', 'flatten risk for free'], [true, 'Bought Protection', 'pay premium to hedge']] as const).map(([v, label, hint]) => {
+              const active = preferProtection === v;
+              return (
+                <button key={label} onClick={() => setPreferProtection(v)}
+                  className="nav-item rounded-[6px] border px-2 py-1 text-left"
+                  style={{ borderColor: active ? 'var(--info)' : 'var(--line-soft)', background: active ? 'color-mix(in srgb, var(--info) 12%, transparent)' : undefined }}>
+                  <div className="text-[9.5px] font-bold leading-tight" style={{ color: active ? 'var(--info)' : 'var(--text)' }}>{label}</div>
+                  <div className="text-[6.5px] leading-tight text-[color:var(--dim)]">{hint}</div>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {/* STEP 3 — aggressiveness shapes the Crash objective's profit-retain floor */}
       {mode === 'CRASH' && (

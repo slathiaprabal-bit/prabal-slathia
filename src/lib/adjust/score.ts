@@ -65,15 +65,6 @@ export function analyzeCandidate(
     const s = pos.spot + target.pts[i];
     scenarioGain += target.weights[i] * (payoffFromNow(resultLegs, s, pos) - payoffFromNow(pos.legs, s, pos));
   }
-  // Opportunity Efficiency = objective benefit ÷ cost. The "benefit" is what the
-  // chosen objective is actually buying, so Defensive rewards protection-per-rupee
-  // (not convex profit), Theta rewards theta-per-rupee, Crash/Vol the scenario gain.
-  let benefit = scenarioGain;
-  if (cfg.mode === 'DEFENSIVE') benefit = Math.max(0, m.maxLoss - base.maxLoss) + Math.max(0, scenarioGain);
-  else if (cfg.mode === 'THETA') benefit = (m.theta - base.theta) * Math.max(1, pos.dte);
-  const effFloor = Math.max(pos.lotSize * 2, 1);   // ~2 pts of premium — avoids ÷0 on credits
-  const opportunityEfficiency = benefit / Math.max(premiumPaid, effFloor);
-
   // Directional protection: improvement in the WORST-CASE loss on the side the
   // thesis threatens. A real hedge (long put) lifts that floor by tens of
   // thousands; a credit structure only adds its flat premium — so this cleanly
@@ -93,6 +84,21 @@ export function analyzeCandidate(
   let directionalProtect = 0;
   for (const s of signsToScan) directionalProtect += worstOnSide(resultLegs, s) - worstOnSide(pos.legs, s);
   directionalProtect /= signsToScan.length;
+
+  // Opportunity Efficiency = objective benefit ÷ cost. The "benefit" is what the
+  // objective is buying: Theta → theta-per-rupee; Crash/Vol → scenario gain;
+  // Defensive → global loss removed by default, but the THREATENED-side loss floor
+  // once protection is wanted, so free flatteners that ignore the real threat
+  // stop looking efficient.
+  const nearShort = pos.legs.some((l) => l.qty < 0 && Math.abs(l.strike - pos.spot) <= sigma);
+  const wantsProtection = cfg.mode === 'DEFENSIVE' &&
+    (cfg.preferBoughtProtection || cfg.vol.expansionExpected || cfg.thesis === 'VOL_EXPANSION' ||
+     expProfitBase <= 0 || base.pop < 0.5 || nearShort);
+  let benefit = scenarioGain;
+  if (cfg.mode === 'DEFENSIVE') benefit = wantsProtection ? Math.max(0, directionalProtect) : Math.max(0, m.maxLoss - base.maxLoss) + Math.max(0, scenarioGain);
+  else if (cfg.mode === 'THETA') benefit = (m.theta - base.theta) * Math.max(1, pos.dte);
+  const effFloor = Math.max(pos.lotSize * 2, 1);   // ~2 pts of premium — avoids ÷0 on credits
+  const opportunityEfficiency = benefit / Math.max(premiumPaid, effFloor);
 
   // The winner-at-risk flag is aggressiveness-aware in Crash: Aggressive exists
   // precisely to spend profit on convexity, so it isn't flagged for doing so.
@@ -146,6 +152,17 @@ export function buildNorms(rows: { m: Metrics; a: AdjustmentAnalysis }[], base: 
   };
 }
 
+// Defensive escalates from capital-efficient (flatten the book for free) to
+// bought protection ONLY when the book is genuinely threatened, vol is expected
+// to expand, or the trader opts in. Otherwise a credit flattener is preferred.
+export function defensiveWantsProtection(a: AdjustmentAnalysis, base: Metrics, pos: Position, cfg: OptimizeConfig): boolean {
+  if (cfg.preferBoughtProtection) return true;
+  if (cfg.vol.expansionExpected || cfg.thesis === 'VOL_EXPANSION') return true;
+  const sigma = pos.spot * pos.iv * Math.sqrt(pos.dte / 365);
+  const nearShort = pos.legs.some((l) => l.qty < 0 && Math.abs(l.strike - pos.spot) <= sigma);
+  return a.expProfitBase <= 0 || base.pop < 0.5 || nearShort;   // underwater / low POP / short strike tested
+}
+
 // STEP 4/6 — the five weighted trader priorities → 0..1 sub-scores + final 0..1.
 export function componentScores(
   a: AdjustmentAnalysis, m: Metrics, base: Metrics, addedLegs: Leg[],
@@ -172,15 +189,18 @@ export function componentScores(
       // Cap the unlimited tail and flatten the book. Greek terms are *signed*:
       // a structure that adds gamma/vega magnitude (a long-option backspread) is
       // off-objective for a defensive trade and is pushed down, not just un-rewarded.
-      // STEP 4 literal: reduce max loss, raise POP, protect the threatened side,
-      // and flatten the book. The hard flat-gate disqualifies anything that ADDS
-      // net vega/gamma — the opposite of defensive — regardless of other merits.
+      // STEP 4: reduce max loss, raise POP, flatten the book. The hard flat-gate
+      // disqualifies anything that ADDS net vega/gamma — the opposite of defensive.
       const popS = n01(popImprove, N.popLo, N.popHi);
       const lossImp = n01(m.maxLoss, N.maxLossLo, N.maxLossHi);
       const protectThreatened = n01(a.directionalProtect, N.dirLo, N.dirHi);
       const flatGate = (Math.abs(m.vega) <= Math.abs(base.vega) * 1.02 && Math.abs(m.gamma) <= Math.abs(base.gamma) * 1.02) ? 1 : 0.35;
       const marginCut = clamp01((base.margin - m.margin) / (base.margin + 1));
-      objective = clamp01(0.35 * lossImp + 0.3 * popS + 0.2 * protectThreatened + 0.15 * marginCut) * flatGate;
+      // Default: capital-efficient (flatten for free). When threatened / vol
+      // expanding / opted-in, real loss-floor protection dominates instead.
+      objective = defensiveWantsProtection(a, base, pos, cfg)
+        ? clamp01(0.6 * protectThreatened + 0.25 * popS + 0.15 * lossImp) * flatGate
+        : clamp01(0.35 * lossImp + 0.3 * popS + 0.2 * protectThreatened + 0.15 * marginCut) * flatGate;
       break;
     }
     case 'THETA': {

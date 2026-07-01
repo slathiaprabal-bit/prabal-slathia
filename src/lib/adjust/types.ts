@@ -51,7 +51,8 @@ export interface OptimizeConfig {
   thesis: MarketThesis;
   aggressiveness: Aggressiveness;
   vol: VolContext;
-  retainThreshold: number;   // flag when expiry profit drops > this (default 0.30)
+  retainThreshold: number;        // flag when expiry profit drops > this (default 0.30)
+  preferBoughtProtection: boolean; // Defensive: user opts to pay premium for protection
 }
 
 // STEP 5/7/8 — the institutional read on a single adjustment, relative to the

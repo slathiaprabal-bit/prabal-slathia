@@ -16,6 +16,7 @@ export function useAdjust() {
   const [mode, setMode] = useState<AdjMode>('DEFENSIVE');
   const [thesis, setThesis] = useState<MarketThesis | null>(null);   // STEP 1 — mandatory before ranking
   const [aggressiveness, setAggressiveness] = useState<Aggressiveness>('BALANCED');
+  const [preferProtection, setPreferProtection] = useState(false);   // Defensive: pay premium for protection
   const [dte, setDte] = useState<number | null>(null);   // null until a position loads
 
   const instParams = loaded && params ? params[loaded.instrument] ?? null : null;
@@ -63,8 +64,8 @@ export function useAdjust() {
 
   // STEP 1/9 — no thesis, no ranking. The engine reads intent before it optimizes.
   const config = useMemo<OptimizeConfig | null>(
-    () => (thesis ? { mode, thesis, aggressiveness, vol, retainThreshold: 0.30 } : null),
-    [mode, thesis, aggressiveness, vol],
+    () => (thesis ? { mode, thesis, aggressiveness, vol, retainThreshold: 0.30, preferBoughtProtection: preferProtection } : null),
+    [mode, thesis, aggressiveness, vol, preferProtection],
   );
   const result = useMemo(
     () => (position && config ? optimize(position, config, 6) : null),
@@ -80,6 +81,7 @@ export function useAdjust() {
   return {
     loaded, setLoaded, reset: () => { setLoaded(null); setThesis(null); },
     position, baseMetrics, result, mode, setMode, thesis, setThesis, aggressiveness, setAggressiveness,
-    dte: effectiveDte, setDte, vol, params, expiries, instParams, degraded, snap, upcoming,
+    preferProtection, setPreferProtection, dte: effectiveDte, setDte,
+    vol, params, expiries, instParams, degraded, snap, upcoming,
   };
 }
