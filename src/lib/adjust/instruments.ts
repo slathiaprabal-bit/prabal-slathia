@@ -15,6 +15,26 @@ export interface InstrumentParams {
   dte: number | null;
 }
 
+// One selectable expiry for an instrument (from the Market Structure Provider).
+export interface ExpiryOpt {
+  date: string;    // adjusted expiry date, YYYY-MM-DD
+  kind: string;    // WEEKLY | MONTHLY
+  dte: number;     // calendar days from now (>= 0)
+  label: string;   // "03 Jul · Weekly (2d)"
+}
+
+function dteOf(date: string): number {
+  return Math.max(0, Math.round((Date.parse(`${date}T15:30:00+05:30`) - Date.now()) / 86400000));
+}
+
+function expiryLabel(date: string, kind: string, dte: number): string {
+  const d = new Date(`${date}T00:00:00+05:30`);
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()];
+  const k = kind === 'MONTHLY' ? 'Monthly' : 'Weekly';
+  return `${day} ${mon} · ${k} (${dte}d)`;
+}
+
 export interface InstrumentChar {
   label: string;
   liquidity: 'DEEP' | 'GOOD' | 'MODERATE' | 'THIN';
@@ -69,6 +89,7 @@ const API_BASE = (import.meta as any).env?.VITE_API_URL || `http://${location.ho
 
 export function useMarketStructure() {
   const [params, setParams] = useState<Record<string, InstrumentParams> | null>(null);
+  const [expiries, setExpiries] = useState<Record<string, ExpiryOpt[]>>({});
   const [degraded, setDegraded] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -80,25 +101,30 @@ export function useMarketStructure() {
         const out: Record<string, InstrumentParams> = {};
         for (const [inst, cfg] of Object.entries<any>(d.instruments ?? {})) {
           const nx = d.nextByInstrument?.[inst];
-          const dte = nx?.date
-            ? Math.max(0, Math.round((Date.parse(`${nx.date}T15:30:00+05:30`) - Date.now()) / 86400000))
-            : null;
+          const dte = nx?.date ? dteOf(nx.date) : null;
           out[inst] = {
             instrument: inst, exchange: cfg.exchange, lotSize: cfg.lotSize, strikeStep: cfg.strikeStep,
             nextExpiry: nx?.date ?? null, nextExpiryKind: nx?.kind ?? null, dte,
           };
         }
-        if (alive) { setParams(out); setDegraded(false); }
+        // Group the full expiry ladder by instrument for the builder's selector.
+        const exp: Record<string, ExpiryOpt[]> = {};
+        for (const e of (d.expiries ?? []) as any[]) {
+          const dte = dteOf(e.date);
+          (exp[e.instrument] ??= []).push({ date: e.date, kind: e.kind, dte, label: expiryLabel(e.date, e.kind, dte) });
+        }
+        for (const k of Object.keys(exp)) exp[k].sort((a, b) => a.date.localeCompare(b.date));
+        if (alive) { setParams(out); setExpiries(exp); setDegraded(false); }
       } catch {
         if (!alive) return;
         const out: Record<string, InstrumentParams> = {};
         for (const [inst, f] of Object.entries(FALLBACK)) {
           out[inst] = { instrument: inst, ...f, nextExpiry: null, nextExpiryKind: null, dte: null };
         }
-        setParams(out); setDegraded(true);
+        setParams(out); setExpiries({}); setDegraded(true);
       }
     })();
     return () => { alive = false; };
   }, []);
-  return { params, degraded };
+  return { params, expiries, degraded };
 }

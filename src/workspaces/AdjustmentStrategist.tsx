@@ -20,8 +20,8 @@ export function AdjustmentStrategist() {
   if (!a.loaded || !a.position || !a.result) {
     return (
       <div className="grid h-full min-h-0 grid-cols-12 grid-rows-6 gap-2">
-        <Panel title="Position Loader" accent="var(--gold)" className="col-start-4 col-span-6 row-start-2 row-span-4" delay={0.04}>
-          <PositionLoader snap={a.snap} onLoad={a.setLoaded} />
+        <Panel title="Position Builder" accent="var(--gold)" className="col-start-2 col-span-10 row-start-1 row-span-6" delay={0.04}>
+          <PositionLoader snap={a.snap} params={a.params} expiries={a.expiries} degraded={a.degraded} onLoad={a.setLoaded} />
         </Panel>
       </div>
     );

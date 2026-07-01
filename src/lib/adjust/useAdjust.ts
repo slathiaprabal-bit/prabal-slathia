@@ -9,7 +9,7 @@ import type { AdjMode, LoadedPosition, VolContext } from './types';
 export function useAdjust() {
   const snap = useTerminal((s) => s.snap);
   const { events } = useEvents();
-  const { params, degraded } = useMarketStructure();
+  const { params, expiries, degraded } = useMarketStructure();
 
   const [loaded, setLoaded] = useState<LoadedPosition | null>(null);
   const [mode, setMode] = useState<AdjMode>('DEFENSIVE');
@@ -68,6 +68,6 @@ export function useAdjust() {
   return {
     loaded, setLoaded, reset: () => setLoaded(null),
     position, result, mode, setMode, dte: effectiveDte, setDte,
-    vol, params, instParams, degraded, snap, upcoming,
+    vol, params, expiries, instParams, degraded, snap, upcoming,
   };
 }

@@ -22,7 +22,10 @@ export interface Position {
 
 // A position as loaded by the user (broker import / open existing / manual).
 export type PositionSource = 'BROKER' | 'STRATEGY_LAB' | 'MANUAL';
-export interface LoadedLeg { kind: OptKind; strike: number; qty: number; entry?: number; }
+// qty in lots (>0 long / <0 short). entry = avg fill price (optional).
+// expiry = per-leg expiry date (YYYY-MM-DD) for calendars/diagonals; when
+// absent the position's single expiry is assumed.
+export interface LoadedLeg { kind: OptKind; strike: number; qty: number; entry?: number; expiry?: string; }
 export interface LoadedPosition {
   instrument: string;
   legs: LoadedLeg[];
