@@ -126,11 +126,28 @@ def health():
     return {"ok": True}
 
 
-@app.get("/api/vol-replay")
-def vol_replay():
-    """Intraday volatility replay samples for the current IST session."""
+@app.get("/api/vol/instruments")
+def vol_instruments():
+    """Registered indices for the terminal's instrument selector."""
+    from .volcontext import instruments
+    return JSONResponse(instruments())
+
+
+@app.get("/api/vol/{instrument}")
+def vol_context(instrument: str):
+    """Full multi-asset vol context (spot, surface, history…) for one index."""
+    from .volcontext import get_context
+    ctx = get_context(instrument)
+    if ctx is None:
+        return JSONResponse({"error": f"unknown instrument {instrument}"}, status_code=404)
+    return JSONResponse(_clean(ctx))
+
+
+@app.get("/api/vol-replay/{instrument}")
+def vol_replay(instrument: str):
+    """Intraday volatility replay samples for one instrument, current session."""
     from .volreplay import session
-    return JSONResponse(_clean(session()))
+    return JSONResponse(_clean(session(instrument.upper())))
 
 
 def _log_error(payload: dict) -> None:

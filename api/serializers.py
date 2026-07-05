@@ -274,13 +274,13 @@ def build_snapshot(cfg: Config, mc: dict | None = None,
     # Real day-over-day IV memory (yesterday / 5-day smile, tenor curves,
     # surface change). Never fabricated — empty until history accumulates.
     try:
-        vol_history = record_and_derive(spot, strikes, dtes, grid)
+        vol_history = record_and_derive(cfg.primary, spot, strikes, dtes, grid)
     except Exception:
         vol_history = None
     # Intraday replay sample — the Session Replay scrubber re-renders the vol
     # panels at any recorded moment of the current session.
     try:
-        record_replay({
+        record_replay(cfg.primary, {
             "spot": round(spot, 1),
             "vixChg": reg.vix_chg,
             "vol": {

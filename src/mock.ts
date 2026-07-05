@@ -304,3 +304,62 @@ function mockMC(volBias: boolean) {
     samplePaths: paths,
   };
 }
+
+// ── Multi-asset demo contexts ────────────────────────────────────────────────
+// Per-instrument demo anchors (spot level, IV anchor, strike step). Demo data
+// is clearly labelled DEMO in the UI; live/backed contexts replace it entirely.
+const DEMO_PROFILE: Record<string, { spot: number; iv: number; step: number; lot: number; label: string; exchange: string }> = {
+  NIFTY: { spot: 24850, iv: 13.2, step: 50, lot: 75, label: 'NIFTY 50', exchange: 'NSE' },
+  BANKNIFTY: { spot: 57920, iv: 14.8, step: 100, lot: 35, label: 'BANK NIFTY', exchange: 'NSE' },
+  FINNIFTY: { spot: 26480, iv: 13.9, step: 50, lot: 65, label: 'FIN NIFTY', exchange: 'NSE' },
+  MIDCPNIFTY: { spot: 13140, iv: 16.4, step: 25, lot: 120, label: 'MIDCAP NIFTY', exchange: 'NSE' },
+  SENSEX: { spot: 81420, iv: 12.8, step: 100, lot: 20, label: 'SENSEX', exchange: 'BSE' },
+  BANKEX: { spot: 63180, iv: 15.2, step: 100, lot: 15, label: 'BANKEX', exchange: 'BSE' },
+};
+
+export function mockVolContext(instrument: string): import('./types').VolContext | null {
+  const p = DEMO_PROFILE[instrument.toUpperCase()];
+  if (!p) return null;
+  const t = tick;
+  const ivr = 30 + 25 * (0.5 + 0.5 * Math.sin(t * 0.1 + p.spot % 7));
+  const baseIv = p.iv + Math.sin(t * 0.23 + p.spot % 5) * 0.6;
+  const spot = p.spot * (1 + Math.sin(t * 0.17 + p.spot % 3) * 0.0012);
+  // reuse the surface generator with instrument anchors
+  const strikes = Array.from({ length: STRIKES },
+    (_, i) => Math.round((spot * (0.88 + (0.24 * i) / (STRIKES - 1))) / p.step) * p.step);
+  const iv: number[][] = [];
+  for (let j = 0; j < EXPIRIES.length; j++) {
+    const dte = EXPIRIES[j];
+    const row: number[] = [];
+    const termMult = 1 + 0.18 * (ivr / 100 - 0.5) * (Math.sqrt(7 / dte) - 1);
+    for (let i = 0; i < STRIKES; i++) {
+      const m = strikes[i] / spot - 1;
+      const skew = -55 * m + 190 * m * m;
+      const wobble = Math.sin(t * 0.6 + i * 0.4 + j + p.spot % 11) * 0.5;
+      row.push(Math.max(6, (baseIv + skew) * termMult + wobble));
+    }
+    iv.push(row);
+  }
+  const surface = { strikes, expiries: EXPIRIES, iv, live: false };
+  const atmI = strikes.reduce((b, k, i) => Math.abs(k - spot) < Math.abs(strikes[b] - spot) ? i : b, 0);
+  const atmIv = iv[0][atmI];
+  const em = Math.round(spot * (atmIv / 100) * Math.sqrt(7 / 365));
+  return {
+    instrument: instrument.toUpperCase(), label: p.label, exchange: p.exchange,
+    available: true, live: false, degraded: ['demo feed'],
+    lotSize: p.lot, strikeStep: p.step,
+    weeklyExpiryDay: instrument === 'NIFTY' ? 'Tuesday' : instrument === 'SENSEX' ? 'Thursday' : null,
+    monthlyExpiry: null, nextExpiry: null, dte: 7,
+    spot: Math.round(spot * 100) / 100, vixChg: Math.sin(t * 0.3) * 2,
+    vol: {
+      vix: atmIv, ivRank: Math.round(ivr), ivPctile: Math.round(ivr * 0.9),
+      hv20: atmIv - 2.1, vrp: 2.1, em1d: Math.round(em / Math.sqrt(7)),
+      emExpiry: em, pInside1: 0.683,
+      sigma1: [Math.round(spot - em), Math.round(spot + em)],
+      sigma2: [Math.round(spot - 2 * em), Math.round(spot + 2 * em)],
+    },
+    surface, surfaceModel: surface, smile: { strikes, iv: iv[0] },
+    term: { dte: EXPIRIES, iv: EXPIRIES.map((_, j) => iv[j][atmI]) },
+    volHistory: null,
+  };
+}

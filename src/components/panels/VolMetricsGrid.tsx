@@ -1,10 +1,10 @@
-import { useVol } from '../../lib/vol/useVol';
+import { useVolState } from '../../lib/vol/replay';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
 
 // Presentation-only. Renders the Volatility Engine's VolState — all volatility
 // math (ATM IV, skew, term slope, etc.) lives in lib/vol, never here.
 export function VolMetricsGrid() {
-  const v = useVol();
+  const v = useVolState();
   if (!v) return null;
 
   const ivrTag = tag(v.ivRank);

@@ -19,27 +19,31 @@ _MAX_SAMPLES = 120
 
 _lock = threading.Lock()
 _session_date: str | None = None
-_samples: list[dict] = []
-_last_sample = 0.0
+_buffers: dict[str, list[dict]] = {}      # per-instrument sample lists
+_last_sample: dict[str, float] = {}
 
 
-def record(sample: dict) -> None:
-    """Append a sample (throttled); reset the buffer on a new IST date."""
-    global _session_date, _samples, _last_sample
+def record(instrument: str, sample: dict) -> None:
+    """Append a sample for THIS instrument (throttled); reset on a new IST date."""
+    global _session_date
     now = time.time()
     ist = datetime.now(_IST)
     date = ist.strftime("%Y-%m-%d")
     with _lock:
         if date != _session_date:
-            _session_date, _samples, _last_sample = date, [], 0.0
-        if now - _last_sample < _SAMPLE_EVERY_S:
+            _session_date = date
+            _buffers.clear()
+            _last_sample.clear()
+        if now - _last_sample.get(instrument, 0.0) < _SAMPLE_EVERY_S:
             return
-        _samples.append({**sample, "ts": ist.isoformat(), "t": ist.strftime("%H:%M")})
-        if len(_samples) > _MAX_SAMPLES:
-            _samples = _samples[-_MAX_SAMPLES:]
-        _last_sample = now
+        buf = _buffers.setdefault(instrument, [])
+        buf.append({**sample, "ts": ist.isoformat(), "t": ist.strftime("%H:%M")})
+        if len(buf) > _MAX_SAMPLES:
+            del buf[:-_MAX_SAMPLES]
+        _last_sample[instrument] = now
 
 
-def session() -> dict:
+def session(instrument: str) -> dict:
     with _lock:
-        return {"date": _session_date, "samples": list(_samples)}
+        return {"date": _session_date, "instrument": instrument,
+                "samples": list(_buffers.get(instrument, []))}

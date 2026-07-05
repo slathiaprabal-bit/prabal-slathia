@@ -100,9 +100,32 @@ def _surface_on(spot_today: float, strikes_today: np.ndarray, dtes_today: np.nda
     return out.round(2).tolist()
 
 
-def record_and_derive(spot: float, strikes: np.ndarray, dtes: np.ndarray,
+def _inst_store(store: dict, instrument: str) -> dict:
+    """Per-instrument day map. Legacy flat {date: rec} files migrate to NIFTY."""
+    if "days" not in store:
+        legacy = {k: v for k, v in store.items() if len(k) == 10 and k[4] == "-"}
+        store.clear()
+        store["days"] = {"NIFTY": legacy} if legacy else {}
+    return store["days"].setdefault(instrument, {})
+
+
+def atm_iv_history(instrument: str) -> list[tuple[str, float]]:
+    """(date, front-expiry ATM IV) per stored day — feeds per-instrument IV rank."""
+    with _lock:
+        days = _inst_store(_load(), instrument)
+    out = []
+    for k in sorted(days):
+        d = days[k]
+        s = np.asarray(d["strikes"], dtype=float)
+        atm = float(np.interp(d["spot"], s, np.asarray(d["iv"], dtype=float)[0]))
+        out.append((k, round(atm, 2)))
+    return out
+
+
+def record_and_derive(instrument: str, spot: float, strikes: np.ndarray, dtes: np.ndarray,
                       grid: np.ndarray) -> dict:
-    """Persist today's surface (throttled) and derive the history views.
+    """Persist today's surface for THIS instrument (throttled) and derive the
+    history views. Every instrument accumulates its own independent store.
 
     Returns the `volHistory` snapshot block. All fields are None/absent until
     real prior-day observations exist — the frontend renders honest empty
@@ -112,19 +135,21 @@ def record_and_derive(spot: float, strikes: np.ndarray, dtes: np.ndarray,
     today = datetime.now(_IST).strftime("%Y-%m-%d")
 
     with _lock:
-        store = _load()
+        root = _load()
+        days = _inst_store(root, instrument)
         now = time.time()
-        if today not in store or now - _last_write > _WRITE_EVERY_S:
-            store[today] = {
+        if today not in days or now - _last_write > _WRITE_EVERY_S:
+            days[today] = {
                 "spot": round(float(spot), 2),
                 "strikes": np.asarray(strikes, dtype=float).round(2).tolist(),
                 "dtes": np.asarray(dtes, dtype=float).round(2).tolist(),
                 "iv": np.asarray(grid, dtype=float).round(2).tolist(),
             }
-            for k in sorted(store)[:-_KEEP_DAYS]:
-                del store[k]
-            _save(store)
+            for k in sorted(days)[:-_KEEP_DAYS]:
+                del days[k]
+            _save(root)
             _last_write = now
+    store = days
 
     prior_keys = sorted(k for k in store if k < today)
     ykey = prior_keys[-1] if prior_keys else None

@@ -6,7 +6,7 @@
 // render AT a selected past moment. Decision/ranking engines elsewhere keep
 // reading the LIVE snapshot — replay never leaks outside this workspace.
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useTerminal } from '../../store';
+import { useMarketSnap, useVolMarket } from './market';
 import { buildVolInputs } from './inputs';
 import { computeVolState } from './engine';
 import type { ReplaySample, Snapshot } from '../../types';
@@ -53,15 +53,20 @@ export function classify(live: Snapshot, s: ReplaySample): { phase: CyclePhase; 
 }
 
 export function VolReplayProvider({ children }: { children: ReactNode }) {
-  const snap = useTerminal((st) => st.snap);
+  const { snap } = useMarketSnap();          // instrument-adjusted market snapshot
+  const { instrument } = useVolMarket();
   const [samples, setSamples] = useState<ReplaySample[]>([]);
   const [activeTs, setActiveTs] = useState<string | null>(null);
 
+  // Each instrument has its OWN session buffer; switching loads that history
+  // and drops any active scrub (it belonged to the previous market).
   useEffect(() => {
     let alive = true;
+    setSamples([]);
+    setActiveTs(null);
     const load = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/vol-replay`, { signal: AbortSignal.timeout(8000) });
+        const res = await fetch(`${API_BASE}/api/vol-replay/${instrument}`, { signal: AbortSignal.timeout(8000) });
         if (!res.ok) return;
         const d = await res.json();
         if (alive && Array.isArray(d.samples)) setSamples(d.samples);
@@ -70,7 +75,7 @@ export function VolReplayProvider({ children }: { children: ReactNode }) {
     load();
     const id = window.setInterval(load, 60000);
     return () => { alive = false; clearInterval(id); };
-  }, []);
+  }, [instrument]);
 
   const value = useMemo<ReplayState>(() => {
     if (!snap) return { moments: [], cycle: { COMPRESSION: 0, NEUTRAL: 0, EXPANSION: 0 }, activeTs, setActiveTs };
@@ -95,17 +100,17 @@ export function useReplay(): ReplayState {
   return useContext(Ctx);
 }
 
-// The snapshot the Volatility Terminal panels should render: the live snap, or
-// the selected replay moment grafted onto it.
+// The snapshot the Volatility Terminal panels render: the instrument-adjusted
+// market snapshot, with the selected replay moment grafted on when scrubbing.
 export function useVolSnap(): { snap: Snapshot | null; replayingAt: string | null } {
-  const live = useTerminal((st) => st.snap);
+  const { snap: base } = useMarketSnap();
   const { moments, activeTs } = useReplay();
   return useMemo(() => {
-    if (!live || !activeTs) return { snap: live ?? null, replayingAt: null };
+    if (!base || !activeTs) return { snap: base ?? null, replayingAt: null };
     const m = moments.find((x) => x.sample.ts === activeTs);
-    if (!m) return { snap: live, replayingAt: null };
-    return { snap: sampleAsSnap(live, m.sample), replayingAt: m.sample.t };
-  }, [live, moments, activeTs]);
+    if (!m) return { snap: base, replayingAt: null };
+    return { snap: sampleAsSnap(base, m.sample), replayingAt: m.sample.t };
+  }, [base, moments, activeTs]);
 }
 
 // Replay-aware VolState for the engine panel (falls back to live).

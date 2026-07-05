@@ -1,7 +1,8 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { Box, Grid3x3, LayoutGrid } from 'lucide-react';
 import { useTerminal } from '../store';
+import { VolMarketProvider, useVolMarket } from '../lib/vol/market';
 import { VolReplayProvider, useVolSnap, useVolState } from '../lib/vol/replay';
 import { VolSelectionProvider, useVolSelection } from '../lib/vol/selection';
 import { gridRange } from '../lib/vol/scale';
@@ -31,11 +32,13 @@ const PRESETS: { id: CameraPreset; label: string }[] = [
 
 export function VolatilityTerminal() {
   return (
-    <VolReplayProvider>
-      <VolSelectionProvider>
-        <Inner />
-      </VolSelectionProvider>
-    </VolReplayProvider>
+    <VolMarketProvider>
+      <VolReplayProvider>
+        <VolSelectionProvider>
+          <Inner />
+        </VolSelectionProvider>
+      </VolReplayProvider>
+    </VolMarketProvider>
   );
 }
 
@@ -45,9 +48,14 @@ function Inner() {
   const [presetNonce, setPresetNonce] = useState(0);
   const [surfMode, setSurfMode] = useState<SurfMode>('LIVE');
   const [xMode, setXMode] = useState<XAxisMode>('STRIKE');
-  const vol = useVolState();                 // replay-aware engine state
+  const vol = useVolState();                 // instrument + replay aware engine state
   const { snap, replayingAt } = useVolSnap();
+  const market = useVolMarket();
   const sel = useVolSelection();
+
+  // Slice indices belong to the previous market — clear on instrument switch.
+  // Camera, view mode, axis mode and replay scrub survive: only data changes.
+  useEffect(() => { sel.clear(); /* eslint-disable-line react-hooks/exhaustive-deps */ }, [market.instrument]);
 
   const surf = snap?.surface;
   // LIVE vs MODEL: the toggle only exists when the primary surface is the real
@@ -65,10 +73,12 @@ function Inner() {
   return (
     <div className="grid h-full min-h-0 grid-cols-12 grid-rows-6 gap-2">
       {/* ── IV SURFACE HERO ── */}
-      <section className="glass relative col-start-1 col-span-7 row-start-1 row-span-4 overflow-hidden">
+      <section className="glass col-start-1 col-span-7 row-start-1 row-span-4 flex flex-col overflow-hidden">
+        <InstrumentHeader />
+        <div className="relative min-h-0 flex-1">
         <div className="pointer-events-none absolute left-3.5 top-2.5 z-10">
           <div className="section-title">{view === 'HEATMAP' ? 'IV Heatmap' : 'Implied Volatility Surface'}</div>
-          <div className="mt-0.5 text-[9px] tracking-wide text-[color:var(--dim)]">NIFTY · STRIKE × DTE × IV%</div>
+          <div className="mt-0.5 text-[9px] tracking-wide text-[color:var(--dim)]">{market.list.find((l) => l.instrument === market.instrument)?.label ?? market.instrument} · STRIKE × DTE × IV%</div>
         </div>
 
         <div className="absolute right-3 top-2.5 z-10 flex items-center gap-1">
@@ -121,14 +131,17 @@ function Inner() {
 
         <IVLegend />
 
-        {view === 'HEATMAP'
-          ? <IVHeatmap surfOverride={surfOverride} xMode={xMode} />
-          : (
-            <Suspense fallback={<CanvasFallback />}>
-              <VolSurface wireframe={view === 'WIREFRAME'} preset={preset} presetNonce={presetNonce}
-                surfOverride={surfOverride} xMode={xMode} />
-            </Suspense>
-          )}
+        {snap == null
+          ? <MarketUnavailable />
+          : view === 'HEATMAP'
+            ? <IVHeatmap surfOverride={surfOverride} xMode={xMode} />
+            : (
+              <Suspense fallback={<CanvasFallback />}>
+                <VolSurface wireframe={view === 'WIREFRAME'} preset={preset} presetNonce={presetNonce}
+                  surfOverride={surfOverride} xMode={xMode} />
+              </Suspense>
+            )}
+        </div>
       </section>
 
       {/* ── VOLATILITY ENGINE ── */}
@@ -152,6 +165,79 @@ function Inner() {
       <Panel title="Volatility Cycle · Session Replay" accent="var(--violet)" className="col-start-10 col-span-3 row-start-5 row-span-2" delay={0.24}>
         <VolCycleReplay />
       </Panel>
+    </div>
+  );
+}
+
+// Compact institutional instrument header: selector + the numbers a trader
+// needs BEFORE reading any chart. Generic — renders whatever index is selected.
+function InstrumentHeader() {
+  const market = useVolMarket();
+  const { snap } = useVolSnap();
+  const conn = useTerminal((s) => s.conn);
+
+  const fmtDate = (d: string | null | undefined) => {
+    if (!d) return '—';
+    const dt = new Date(`${d}T00:00:00+05:30`);
+    return `${dt.getUTCDate()} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][dt.getUTCMonth()]}`;
+  };
+  const ctx = market.ctx;
+  const isPrimary = ctx == null;
+  const feed = isPrimary
+    ? (conn === 'live' ? 'LIVE' : 'DEMO')
+    : ctx.degraded?.includes('demo feed') ? 'DEMO' : ctx.live ? 'LIVE' : 'MODEL';
+  const feedColor = feed === 'LIVE' ? 'var(--pos)' : feed === 'MODEL' ? 'var(--info)' : 'var(--gold)';
+
+  return (
+    <div className="flex shrink-0 items-center gap-3 border-b border-[color:var(--line-soft)] px-3 py-1.5">
+      <select value={market.instrument} onChange={(e) => market.setInstrument(e.target.value)}
+        className="rounded-[5px] border border-[color:var(--line)] bg-[color:var(--bg2)] px-2 py-1 text-[11px] font-bold tracking-wide text-[color:var(--text)] outline-none">
+        {market.list.map((i) => <option key={i.instrument} value={i.instrument} className="bg-[color:var(--bg1)]">{i.label}</option>)}
+      </select>
+
+      {snap ? (
+        <div className="mono flex min-w-0 flex-1 items-center gap-3.5 overflow-x-auto text-[9px] text-[color:var(--dim)]">
+          <Hd label="SPOT" value={snap.spot.toLocaleString('en-IN')} strong />
+          <Hd label="ATM IV" value={`${(snap.vol.vix ?? 0).toFixed(1)}%`} />
+          <Hd label="IV RANK" value={`${(snap.vol.ivRank ?? 0).toFixed(0)}`} />
+          <Hd label="PCTILE" value={`${(snap.vol.ivPctile ?? 0).toFixed(0)}`} />
+          <Hd label="EXP MOVE" value={`±${Math.round(snap.vol.emExpiry).toLocaleString('en-IN')}`} />
+          <Hd label="WEEKLY" value={ctx?.weeklyExpiryDay ?? (isPrimary ? 'Tuesday' : '—')} />
+          <Hd label="MONTHLY" value={fmtDate(ctx?.monthlyExpiry)} />
+        </div>
+      ) : (
+        <span className="flex-1 text-[9px] text-[color:var(--dim)]">No market data recorded for this index yet.</span>
+      )}
+
+      <span className="flex shrink-0 items-center gap-1.5 rounded-[4px] border border-[color:var(--line)] px-1.5 py-0.5"
+        title={ctx?.degraded?.length ? `Degraded inputs:\n${ctx.degraded.join('\n')}` : 'All inputs nominal'}>
+        <span className="h-1.5 w-1.5 rounded-full pulse" style={{ background: feedColor }} />
+        <span className="text-[7px] font-bold tracking-widest" style={{ color: feedColor }}>{feed}</span>
+        {!!ctx?.degraded?.length && !ctx.degraded.includes('demo feed') && (
+          <span className="text-[7px] font-bold text-[color:var(--gold)]">{ctx.degraded.length}⚠</span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+function Hd({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <span className="flex shrink-0 items-baseline gap-1">
+      <span className="eyebrow text-[6.5px]">{label}</span>
+      <span className={strong ? 'text-[10.5px] font-bold text-[color:var(--text)]' : 'font-semibold text-[color:var(--text)]'}>{value}</span>
+    </span>
+  );
+}
+
+function MarketUnavailable() {
+  const market = useVolMarket();
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-1 px-6 text-center">
+      <div className="text-[11px] font-bold text-[color:var(--gold)]">No data for {market.instrument} yet</div>
+      <div className="text-[9.5px] leading-relaxed text-[color:var(--dim)]">
+        {market.ctx?.degraded?.join(' · ') || 'The market data provider has no live quote or recorded history for this index. It will populate automatically once the backend can reach the market.'}
+      </div>
     </div>
   );
 }
@@ -193,9 +279,9 @@ function Seg({ active, onClick, icon, label }: { active: boolean; onClick: () =>
 }
 
 function SurfaceBadge() {
-  const live = useTerminal((s) => s.snap?.surface.live);
-  const synthetic = useTerminal((s) => s.snap?.positioning.synthetic);
-  const label = live ? 'LIVE NSE CHAIN IV' : synthetic === false ? 'LIVE' : 'PARAMETRIC MODEL';
+  const { snap } = useVolSnap();
+  const live = snap?.surface?.live;
+  const label = live ? 'LIVE CHAIN IV' : 'PARAMETRIC MODEL';
   return (
     <div className="pointer-events-none flex items-center gap-1.5 rounded-[4px] border border-[color:var(--line)] bg-black/40 px-1.5 py-0.5">
       <span className="h-1.5 w-1.5 rounded-full pulse" style={{ background: live ? 'var(--pos)' : 'var(--gold)' }} />

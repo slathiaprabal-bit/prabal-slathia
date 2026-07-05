@@ -13,7 +13,7 @@ function drivers(i: VolInputs): VolDriver[] {
     { key: 'ivpctile', label: 'IV Percentile', weight: 0.18, contribution: clamp((i.ivPctile - 50) / 50, -1, 1),
       detail: `IV Percentile ${i.ivPctile.toFixed(0)}` },
     { key: 'vix', label: 'VIX Level', weight: 0.22, contribution: clamp(((i.vix - 8) / 22) * 2 - 1, -1, 1),
-      detail: `India VIX ${i.vix.toFixed(2)}` },
+      detail: `Vol index ${i.vix.toFixed(2)}` },
     { key: 'vrp', label: 'Variance Risk Premium', weight: 0.14, contribution: clamp(i.vrp / 8, -1, 1),
       detail: `VRP ${i.vrp >= 0 ? '+' : ''}${i.vrp.toFixed(1)}` },
     { key: 'term', label: 'Term Structure', weight: 0.10, contribution: clamp(-i.termSlope / 5, -1, 1),
@@ -150,7 +150,7 @@ function buildReasoning(
   s: { score: number; regime: VolRegime; trend: VolTrend; premiumRichness: PremiumRichness; expansionProb: number; compressionProb: number; bias: VegaBias },
 ): string[] {
   const out: string[] = [];
-  out.push(`Volatility score ${s.score.toFixed(0)}/100 — ${s.regime.replace('_', ' ').toLowerCase()} regime (IVR ${i.ivRank.toFixed(0)}, VIX ${i.vix.toFixed(1)}).`);
+  out.push(`Volatility score ${s.score.toFixed(0)}/100 — ${s.regime.replace('_', ' ').toLowerCase()} regime (IVR ${i.ivRank.toFixed(0)}, vol ${i.vix.toFixed(1)}).`);
   out.push(
     s.premiumRichness === 'RICH' ? `Premium rich — VRP ${i.vrp >= 0 ? '+' : ''}${i.vrp.toFixed(1)} with IV above realized.`
     : s.premiumRichness === 'CHEAP' ? `Premium cheap — VRP ${i.vrp >= 0 ? '+' : ''}${i.vrp.toFixed(1)}; options under-pricing realized risk.`

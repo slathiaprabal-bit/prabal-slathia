@@ -13,13 +13,17 @@ MON, TUE, WED, THU, FRI = 0, 1, 2, 3, 4
 #   exchange: NSE | BSE.
 #   lot_size / strike_step: contract lot and listed strike spacing.
 # lot_size and strike_step are SEBI/exchange-revised periodically — keep current.
+#   label   : display name.  yahoo: quote symbol for spot/HV history.
+#   iv_band : typical ATM IV range (vol pts) — parametric anchor of last resort.
+# Registering a NEW index here is ALL that is required: the market-structure
+# API, the multi-asset vol context provider and the terminal UI all read this.
 INSTRUMENTS: dict[str, dict] = {
-    "NIFTY":      {"exchange": "NSE", "weekly": TUE, "monthly": TUE, "lot_size": 75, "strike_step": 50},
-    "SENSEX":     {"exchange": "BSE", "weekly": THU, "monthly": THU, "lot_size": 20, "strike_step": 100},
-    "BANKNIFTY":  {"exchange": "NSE", "weekly": None, "monthly": TUE, "lot_size": 35, "strike_step": 100},
-    "FINNIFTY":   {"exchange": "NSE", "weekly": None, "monthly": TUE, "lot_size": 65, "strike_step": 50},
-    "MIDCPNIFTY": {"exchange": "NSE", "weekly": None, "monthly": TUE, "lot_size": 120, "strike_step": 25},
-    "BANKEX":     {"exchange": "BSE", "weekly": None, "monthly": THU, "lot_size": 15, "strike_step": 100},
+    "NIFTY":      {"label": "NIFTY 50", "exchange": "NSE", "weekly": TUE, "monthly": TUE, "lot_size": 75, "strike_step": 50, "yahoo": "^NSEI", "iv_band": (10, 22)},
+    "SENSEX":     {"label": "SENSEX", "exchange": "BSE", "weekly": THU, "monthly": THU, "lot_size": 20, "strike_step": 100, "yahoo": "^BSESN", "iv_band": (10, 22)},
+    "BANKNIFTY":  {"label": "BANK NIFTY", "exchange": "NSE", "weekly": None, "monthly": TUE, "lot_size": 35, "strike_step": 100, "yahoo": "^NSEBANK", "iv_band": (12, 26)},
+    "FINNIFTY":   {"label": "FIN NIFTY", "exchange": "NSE", "weekly": None, "monthly": TUE, "lot_size": 65, "strike_step": 50, "yahoo": "NIFTY_FIN_SERVICE.NS", "iv_band": (11, 24)},
+    "MIDCPNIFTY": {"label": "MIDCAP NIFTY", "exchange": "NSE", "weekly": None, "monthly": TUE, "lot_size": 120, "strike_step": 25, "yahoo": "NIFTY_MID_SELECT.NS", "iv_band": (13, 28)},
+    "BANKEX":     {"label": "BANKEX", "exchange": "BSE", "weekly": None, "monthly": THU, "lot_size": 15, "strike_step": 100, "yahoo": "BSE-BANK.BO", "iv_band": (12, 26)},
 }
 
 # IST close — index options settle at 15:30.

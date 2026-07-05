@@ -64,6 +64,31 @@ export interface VolHistory {
   };
 }
 
+// Multi-asset vol context (api/volcontext.py) — one generic market object per
+// registered index. The terminal UI consumes this and never hardcodes an index.
+export interface VolContext {
+  instrument: string;
+  label: string;
+  exchange?: string;
+  available: boolean;
+  live?: boolean;
+  degraded: string[];
+  lotSize?: number;
+  strikeStep?: number;
+  weeklyExpiryDay?: string | null;
+  monthlyExpiry?: string | null;
+  nextExpiry?: string | null;
+  dte?: number;
+  spot?: number;
+  vixChg?: number;
+  vol?: Partial<VolBlock> & { vix: number };
+  surface?: Surface;
+  surfaceModel?: Surface | null;
+  smile?: Curve;
+  term?: Curve;
+  volHistory?: VolHistory | null;
+}
+
 // One intraday replay sample (api/volreplay.py) — enough to re-render the
 // smile, term structure, surface and vol engine at that recorded moment.
 export interface ReplaySample {
