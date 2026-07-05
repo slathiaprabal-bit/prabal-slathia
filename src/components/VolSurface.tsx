@@ -39,7 +39,8 @@ export interface SurfaceHover { i: number; j: number; px: number; py: number; }
 
 function SurfaceMesh({ surf, lo, hi, wireframe, onHover, onPick }: {
   surf: Surface | undefined; lo: number; hi: number; wireframe: boolean;
-  onHover: (h: SurfaceHover | null) => void; onPick: (i: number, j: number) => void;
+  onHover: (h: SurfaceHover | null) => void;
+  onPick: (strikeIdx: number, expiryIdx: number) => void;
 }) {
   const nx = surf?.strikes.length ?? 41;
   const ny = surf?.expiries.length ?? 7;
@@ -116,10 +117,9 @@ function SurfaceMesh({ surf, lo, hi, wireframe, onHover, onPick }: {
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     if (!e.uv) return;
     e.stopPropagation();
-    onPick(
-      Math.max(0, Math.min(nx - 1, Math.round(e.uv.x * (nx - 1)))),
-      Math.max(0, Math.min(ny - 1, Math.round((1 - e.uv.y) * (ny - 1)))),
-    );
+    const i = Math.max(0, Math.min(nx - 1, Math.round(e.uv.x * (nx - 1))));       // strike
+    const j = Math.max(0, Math.min(ny - 1, Math.round((1 - e.uv.y) * (ny - 1)))); // expiry
+    onPick(i, j);
   };
 
   return (
@@ -199,6 +199,7 @@ const Axes = memo(function Axes({ surf, lo, hi }: { surf: Surface; lo: number; h
 });
 
 // ── subtle market-feature overlays: ATM ridge, spot plane, IV extremes ──
+const inward = (i: number, n: number) => (i < n * 0.12 ? 0.85 : i > n * 0.88 ? -0.85 : 0);
 const Overlays = memo(function Overlays({ surf, lo, hi, spot }: { surf: Surface; lo: number; hi: number; spot: number }) {
   const nx = surf.strikes.length, ny = surf.expiries.length;
   const yOf = (iv: number) => Math.max(0, Math.min(1.03, (iv - lo) / (hi - lo || 1))) * HMAX;
@@ -230,11 +231,12 @@ const Overlays = memo(function Overlays({ surf, lo, hi, spot }: { surf: Surface;
         <meshBasicMaterial color="#ffffff" transparent opacity={0.035} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
 
-      {/* IV extremes */}
+      {/* IV extremes — nudged inward at the edges so they never collide with
+          the IV axis pole labels in the corner */}
       <TextSprite text={`HIGH ${hiCell.v.toFixed(1)}`} color="#ff7000" size={0.3} opacity={0.9}
-        position={[xAt(hiCell.i, nx), yOf(hiCell.v) + 0.34, zAt(hiCell.j, ny)]} />
+        position={[xAt(hiCell.i, nx) + inward(hiCell.i, nx), yOf(hiCell.v) + 0.34, zAt(hiCell.j, ny)]} />
       <TextSprite text={`LOW ${loCell.v.toFixed(1)}`} color="#5aa7ff" size={0.3} opacity={0.9}
-        position={[xAt(loCell.i, nx), yOf(loCell.v) + 0.3, zAt(loCell.j, ny)]} />
+        position={[xAt(loCell.i, nx) + inward(loCell.i, nx), yOf(loCell.v) + 0.3, zAt(loCell.j, ny)]} />
     </group>
   );
 });
@@ -374,7 +376,8 @@ export function VolSurface({ wireframe = false, preset = 'DIAG' as CameraPreset,
         <fog attach="fog" args={['#000000', 24, 46]} />
         <Lights />
         <Floor />
-        <SurfaceMesh surf={surf} lo={lo} hi={hi} wireframe={wireframe} onHover={setHover} onPick={select} />
+        <SurfaceMesh surf={surf} lo={lo} hi={hi} wireframe={wireframe} onHover={setHover}
+          onPick={(i, j) => select(j, i)} />
         {surf && <Axes surf={surf} lo={lo} hi={hi} />}
         {surf && spot > 0 && <Overlays surf={surf} lo={lo} hi={hi} spot={spot} />}
         {surf && <SelectionSlices surf={surf} lo={lo} hi={hi} />}
