@@ -15,17 +15,24 @@ const W = 10;      // strike axis width
 const D = 7;       // expiry axis depth
 const HMAX = 3.2;  // IV axis height
 
-export type CameraPreset = 'DIAG' | 'TOP' | 'FRONT' | 'SIDE';
+export type CameraPreset = 'PERSPECTIVE' | 'TOP' | 'SMILE' | 'TERM' | 'SKEW';
 const PRESET_POS: Record<CameraPreset, [number, number, number]> = {
-  DIAG: [9, 5.6, 9],        // institutional 3/4 view
-  TOP: [0, 14.5, 0.001],    // skew map from above
-  FRONT: [0, 2.8, 11.8],    // smile view (strikes across)
-  SIDE: [11.8, 2.8, 0],     // term view (maturities across)
+  PERSPECTIVE: [8.2, 5.0, 8.2],  // institutional 3/4 view
+  TOP: [0, 12.5, 0.001],         // heatmap-style skew map from above
+  SMILE: [0, 2.4, 10.6],         // strikes across — read the smile
+  TERM: [10.6, 2.4, 0],          // maturities across — read the term curve
+  SKEW: [-4.2, 3.0, 10.2],       // off-axis from the put wing — wing asymmetry
+};
+
+export type XAxisMode = 'STRIKE' | 'MONEYNESS';
+const xTickLabel = (k: number, spot: number, mode: XAxisMode) => {
+  if (mode === 'STRIKE' || !spot) return `${Math.round(k)}`;
+  const lm = Math.log(k / spot) * 100;   // log-moneyness, in %
+  return `${lm >= 0 ? '+' : ''}${lm.toFixed(1)}%`;
 };
 
 const xAt = (i: number, nx: number) => (i / (nx - 1) - 0.5) * W;
 const zAt = (j: number, ny: number) => (j / (ny - 1) - 0.5) * D;
-const smoothstep = (t: number) => t * t * (3 - 2 * t);
 
 function rgbStr(s: string): [number, number, number] {
   const m = s.match(/rgb\((\d+),(\d+),(\d+)\)/);
@@ -45,11 +52,11 @@ function SurfaceMesh({ surf, lo, hi, wireframe, onHover, onPick }: {
   const nx = surf?.strikes.length ?? 41;
   const ny = surf?.expiries.length ?? 7;
 
-  // Dense mesh: subdivide each data cell; expiry rows are sparse so they get
-  // smoothstep interpolation (continuous, but no invented structure).
-  const SUB = 4;
-  const segX = (nx - 1) * SUB;
-  const segY = (ny - 1) * SUB;
+  // Dense mesh: strikes are already dense (41), expiry rows are sparse — give
+  // the DTE axis much finer subdivision with curvature-preserving interpolation.
+  const SUB_X = 3, SUB_Y = 8;
+  const segX = (nx - 1) * SUB_X;
+  const segY = (ny - 1) * SUB_Y;
 
   const geom = useMemo(() => {
     const g = new THREE.PlaneGeometry(W, D, segX, segY);
@@ -61,23 +68,32 @@ function SurfaceMesh({ surf, lo, hi, wireframe, onHover, onPick }: {
   const targetH = useRef<Float32Array>(new Float32Array((segX + 1) * (segY + 1)));
 
   // Re-sample the IV grid onto the dense mesh whenever data updates. Heights
-  // are DATA ONLY — no decorative noise.
+  // are DATA ONLY — no decorative noise. Strikes interpolate linearly (dense
+  // observations); the sparse expiry axis uses Catmull-Rom, which passes
+  // EXACTLY through every observed row while preserving curvature between
+  // them — smoothing only between data, never over it.
   useMemo(() => {
     if (!surf) return;
     const gw = segX + 1, gh = segY + 1;
     const arr = new Float32Array(gw * gh);
-    for (let jj = 0; jj < gh; jj++) {
-      for (let ii = 0; ii < gw; ii++) {
-        const fx = (ii / (gw - 1)) * (nx - 1);
+    const col = new Float64Array(ny);
+    for (let ii = 0; ii < gw; ii++) {
+      const fx = (ii / (gw - 1)) * (nx - 1);
+      const i0 = Math.floor(fx);
+      const i1 = Math.min(i0 + 1, nx - 1);
+      const tx = fx - i0;
+      for (let j = 0; j < ny; j++) {
+        col[j] = (surf.iv[j]?.[i0] ?? lo) * (1 - tx) + (surf.iv[j]?.[i1] ?? lo) * tx;
+      }
+      for (let jj = 0; jj < gh; jj++) {
         const fy = (jj / (gh - 1)) * (ny - 1);
-        const i0 = Math.floor(fx), j0 = Math.floor(fy);
-        const i1 = Math.min(i0 + 1, nx - 1), j1 = Math.min(j0 + 1, ny - 1);
-        const tx = fx - i0, ty = smoothstep(fy - j0);
-        const v00 = surf.iv[j0]?.[i0] ?? lo;
-        const v10 = surf.iv[j0]?.[i1] ?? lo;
-        const v01 = surf.iv[j1]?.[i0] ?? lo;
-        const v11 = surf.iv[j1]?.[i1] ?? lo;
-        const iv = (v00 * (1 - tx) + v10 * tx) * (1 - ty) + (v01 * (1 - tx) + v11 * tx) * ty;
+        const j1 = Math.min(Math.max(0, ny - 2), Math.floor(fy));
+        const t = fy - j1;
+        const p0 = col[Math.max(0, j1 - 1)], p1 = col[j1];
+        const p2 = col[Math.min(ny - 1, j1 + 1)], p3 = col[Math.min(ny - 1, j1 + 2)];
+        const iv = ny < 2 ? p1 : 0.5 * ((2 * p1) + (-p0 + p2) * t
+          + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t
+          + (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t);
         arr[jj * gw + ii] = Math.max(0, Math.min(1.03, (iv - lo) / (hi - lo || 1))) * HMAX;
       }
     }
@@ -93,7 +109,7 @@ function SurfaceMesh({ surf, lo, hi, wireframe, onHover, onPick }: {
     for (let k = 0; k < pos.count; k++) {
       const cur = pos.getZ(k);
       const tgt = t[k] ?? 0;
-      const next = cur + (tgt - cur) * 0.12;
+      const next = cur + (tgt - cur) * 0.17;   // ≈250ms to converge at 60fps
       pos.setZ(k, next);
       const tt = Math.max(0, Math.min(1, next / HMAX));
       const [r, g, b] = rgbStr(sampleScale(IV_STOPS, tt));
@@ -127,12 +143,13 @@ function SurfaceMesh({ surf, lo, hi, wireframe, onHover, onPick }: {
       <mesh geometry={geom} castShadow receiveShadow
         onPointerMove={handleMove} onPointerOut={() => { last.current = { i: -1, j: -1 }; onHover(null); }}
         onClick={handleClick}>
-        <meshStandardMaterial vertexColors metalness={0.18} roughness={0.5}
-          transparent opacity={wireframe ? 0.05 : 0.96} side={THREE.DoubleSide} />
+        {/* matte, readable shading — no gloss */}
+        <meshStandardMaterial vertexColors metalness={0.04} roughness={0.68}
+          transparent opacity={wireframe ? 0.05 : 0.97} side={THREE.DoubleSide} />
       </mesh>
       <mesh geometry={geom}>
         <meshBasicMaterial vertexColors={wireframe} color="#ffffff" wireframe transparent
-          opacity={wireframe ? 0.85 : 0.06} depthWrite={false} />
+          opacity={wireframe ? 0.85 : 0.09} depthWrite={false} />
       </mesh>
     </group>
   );
@@ -165,8 +182,10 @@ function TextSprite({ text, position, color = '#8b919c', size = 0.42, opacity = 
   );
 }
 
-// ── institutional axes: readable ticks + titles ──
-const Axes = memo(function Axes({ surf, lo, hi }: { surf: Surface; lo: number; hi: number }) {
+// ── institutional axes: readable ticks + titles, strike or log-moneyness ──
+const Axes = memo(function Axes({ surf, lo, hi, spot, xMode }: {
+  surf: Surface; lo: number; hi: number; spot: number; xMode: XAxisMode;
+}) {
   const nx = surf.strikes.length, ny = surf.expiries.length;
   const strikeIdx = [0, Math.round((nx - 1) / 4), Math.round((nx - 1) / 2), Math.round(3 * (nx - 1) / 4), nx - 1];
   const expIdx = ny <= 8 ? surf.expiries.map((_, j) => j) : [0, Math.round((ny - 1) / 2), ny - 1];
@@ -174,24 +193,25 @@ const Axes = memo(function Axes({ surf, lo, hi }: { surf: Surface; lo: number; h
 
   return (
     <group>
-      {/* strike ticks — near edge */}
+      {/* strike / log-moneyness ticks — near edge */}
       {strikeIdx.map((i) => (
-        <TextSprite key={`s${i}`} text={`${Math.round(surf.strikes[i])}`}
-          position={[xAt(i, nx), 0.06, D / 2 + 0.62]} size={0.36} />
+        <TextSprite key={`s${i}-${xMode}`} text={xTickLabel(surf.strikes[i], spot, xMode)}
+          position={[xAt(i, nx), 0.06, D / 2 + 0.62]} size={0.38} color="#9aa4b1" />
       ))}
-      <TextSprite text="STRIKE" position={[0, 0.06, D / 2 + 1.28]} color="#5b616b" size={0.34} />
+      <TextSprite text={xMode === 'STRIKE' ? 'STRIKE' : 'LOG MONEYNESS'}
+        position={[0, 0.06, D / 2 + 1.28]} color="#5b616b" size={0.34} />
 
       {/* DTE ticks — right edge */}
       {expIdx.map((j) => (
         <TextSprite key={`e${j}`} text={`${Math.round(surf.expiries[j])}d`}
-          position={[W / 2 + 0.6, 0.06, zAt(j, ny)]} size={0.36} />
+          position={[W / 2 + 0.6, 0.06, zAt(j, ny)]} size={0.38} color="#9aa4b1" />
       ))}
       <TextSprite text="DTE" position={[W / 2 + 1.35, 0.06, 0]} color="#5b616b" size={0.34} />
 
       {/* IV axis pole — front-left corner */}
       <Line points={[[-W / 2, 0, D / 2], [-W / 2, HMAX + 0.15, D / 2]]} color="#3a3f47" lineWidth={1} />
       {ivTicks.map(({ t, v }) => (
-        <TextSprite key={t} text={v.toFixed(1)} position={[-W / 2 - 0.55, t * HMAX, D / 2]} size={0.34} />
+        <TextSprite key={t} text={v.toFixed(1)} position={[-W / 2 - 0.55, t * HMAX, D / 2]} size={0.36} color="#9aa4b1" />
       ))}
       <TextSprite text="IV %" position={[-W / 2 - 0.55, HMAX + 0.5, D / 2]} color="#5b616b" size={0.34} />
     </group>
@@ -199,7 +219,6 @@ const Axes = memo(function Axes({ surf, lo, hi }: { surf: Surface; lo: number; h
 });
 
 // ── subtle market-feature overlays: ATM ridge, spot plane, IV extremes ──
-const inward = (i: number, n: number) => (i < n * 0.12 ? 0.85 : i > n * 0.88 ? -0.85 : 0);
 const Overlays = memo(function Overlays({ surf, lo, hi, spot }: { surf: Surface; lo: number; hi: number; spot: number }) {
   const nx = surf.strikes.length, ny = surf.expiries.length;
   const yOf = (iv: number) => Math.max(0, Math.min(1.03, (iv - lo) / (hi - lo || 1))) * HMAX;
@@ -221,8 +240,9 @@ const Overlays = memo(function Overlays({ surf, lo, hi, spot }: { surf: Surface;
 
   return (
     <group>
-      {/* ATM ridge across maturities */}
-      <Line points={ridge} color="#ffffff" transparent opacity={0.3} lineWidth={1.4} dashed dashSize={0.18} gapSize={0.12} />
+      {/* ATM ridge across maturities — always visible (never occluded by hills) */}
+      <Line points={ridge} color="#e8d9ae" transparent opacity={0.38} lineWidth={1.6}
+        dashed dashSize={0.18} gapSize={0.12} depthTest={false} renderOrder={2} />
       <TextSprite text="ATM" position={[xAt(atmI, nx), yOf(surf.iv[0][atmI]) + 0.42, zAt(0, ny)]} color="#c9ced6" size={0.32} opacity={0.85} />
 
       {/* current spot plane (vertical, very subtle) */}
@@ -231,12 +251,17 @@ const Overlays = memo(function Overlays({ surf, lo, hi, spot }: { surf: Surface;
         <meshBasicMaterial color="#ffffff" transparent opacity={0.035} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
 
-      {/* IV extremes — nudged inward at the edges so they never collide with
-          the IV axis pole labels in the corner */}
-      <TextSprite text={`HIGH ${hiCell.v.toFixed(1)}`} color="#ff7000" size={0.3} opacity={0.9}
-        position={[xAt(hiCell.i, nx) + inward(hiCell.i, nx), yOf(hiCell.v) + 0.34, zAt(hiCell.j, ny)]} />
-      <TextSprite text={`LOW ${loCell.v.toFixed(1)}`} color="#5aa7ff" size={0.3} opacity={0.9}
-        position={[xAt(loCell.i, nx) + inward(loCell.i, nx), yOf(loCell.v) + 0.3, zAt(loCell.j, ny)]} />
+      {/* IV extremes — small ring markers at the cells (their VALUES are the
+          legend's dynamic hi/lo bounds, so no floating text to collide with
+          the axis labels from any camera angle) */}
+      <mesh position={[xAt(hiCell.i, nx), yOf(hiCell.v) + 0.06, zAt(hiCell.j, ny)]} rotation={[-Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.13, 0.028, 8, 24]} />
+        <meshBasicMaterial color="#ff7000" transparent opacity={0.9} depthTest={false} />
+      </mesh>
+      <mesh position={[xAt(loCell.i, nx), yOf(loCell.v) + 0.06, zAt(loCell.j, ny)]} rotation={[-Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.13, 0.028, 8, 24]} />
+        <meshBasicMaterial color="#5aa7ff" transparent opacity={0.9} depthTest={false} />
+      </mesh>
     </group>
   );
 });
@@ -287,12 +312,14 @@ function SelectionSlices({ surf, lo, hi }: { surf: Surface; lo: number; hi: numb
 }
 
 function Lights() {
+  // Readability lighting: soft ambient base, one gentle key for shape, a cool
+  // rim from behind for depth separation. No hot specular highlights.
   return (
     <>
-      <ambientLight intensity={0.42} />
-      <directionalLight position={[7, 13, 5]} intensity={1.45} color="#ffffff" />
-      <directionalLight position={[-9, 5, -5]} intensity={0.3} color="#aab8d0" />
-      <pointLight position={[0, 9, 0]} intensity={26} distance={42} color="#ffffff" />
+      <hemisphereLight args={['#cdd6e4', '#0a0c10', 0.55]} />
+      <directionalLight position={[6, 11, 4]} intensity={1.05} color="#ffffff" />
+      <directionalLight position={[-8, 4, -7]} intensity={0.55} color="#7e93b8" />
+      <directionalLight position={[0, 2.5, -11]} intensity={0.35} color="#9db4d8" />
     </>
   );
 }
@@ -327,16 +354,23 @@ function CameraFly({ preset, nonce }: { preset: CameraPreset; nonce: number }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function VolSurface({ wireframe = false, preset = 'DIAG' as CameraPreset, presetNonce = 0 }: {
+export function VolSurface({ wireframe = false, preset = 'PERSPECTIVE' as CameraPreset, presetNonce = 0,
+  surfOverride = null, xMode = 'STRIKE' as XAxisMode }: {
   wireframe?: boolean; preset?: CameraPreset; presetNonce?: number;
+  surfOverride?: Surface | null;   // Model surface when the hero is in MODEL mode
+  xMode?: XAxisMode;
 }) {
   const [hover, setHover] = useState<SurfaceHover | null>(null);
   const { snap } = useVolSnap();               // replay-aware surface
   const { moments } = useReplay();
   const { select } = useVolSelection();
-  const surf = snap?.surface;
+  const surf = surfOverride ?? snap?.surface;
   const spot = snap?.spot ?? 0;
-  const ydayGrid = snap?.volHistory?.surfaceYesterday ?? null;
+  // History grids are aligned to the PRIMARY surface — suppress day-change
+  // readouts when rendering the Model fit over a live-chain primary.
+  const historyOk = surf === snap?.surface;
+  const ydayGrid = historyOk ? snap?.volHistory?.surfaceYesterday ?? null : null;
+  const avg5Front = historyOk ? snap?.volHistory?.smileAvg5 ?? null : null;
   const { lo, hi } = useMemo(() => gridRange(surf?.iv ?? []), [surf]);
 
   // ── tooltip analytics for the hovered point ──
@@ -361,29 +395,32 @@ export function VolSurface({ wireframe = false, preset = 'DIAG' as CameraPreset,
     }
     const kind = strike < spot ? 'P' as const : 'C' as const;
     const delta = spot > 0 ? bs(spot, strike, Math.max(dte, 0.5) / 365, iv / 100, 0.066, kind).delta : null;
+    // Richness: IV vs the 5-day average — observed for the front expiry only.
+    const d5 = hover.j === 0 && avg5Front?.[hover.i] != null ? iv - avg5Front[hover.i] : null;
+    const richness = d5 == null ? null : d5 > 0.35 ? 'Rich' : d5 < -0.35 ? 'Cheap' : 'Fair';
     return {
-      strike, dte, iv, dYday, dSession,
+      strike, dte, iv, dYday, dSession, d5, richness,
       skew: iv - surf.iv[hover.j][atmI],
       moneyness: spot > 0 ? (strike / spot - 1) * 100 : null,
       delta, kind,
     };
-  }, [hover, surf, spot, ydayGrid, moments]);
+  }, [hover, surf, spot, ydayGrid, avg5Front, moments]);
 
   return (
     <div className="absolute inset-0">
       <Canvas dpr={[1, 2]} gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-        camera={{ position: PRESET_POS.DIAG, fov: 42 }} shadows>
-        <fog attach="fog" args={['#000000', 24, 46]} />
+        camera={{ position: PRESET_POS.PERSPECTIVE, fov: 42 }} shadows>
+        <fog attach="fog" args={['#000000', 28, 52]} />
         <Lights />
         <Floor />
         <SurfaceMesh surf={surf} lo={lo} hi={hi} wireframe={wireframe} onHover={setHover}
           onPick={(i, j) => select(j, i)} />
-        {surf && <Axes surf={surf} lo={lo} hi={hi} />}
+        {surf && <Axes surf={surf} lo={lo} hi={hi} spot={spot} xMode={xMode} />}
         {surf && spot > 0 && <Overlays surf={surf} lo={lo} hi={hi} spot={spot} />}
         {surf && <SelectionSlices surf={surf} lo={lo} hi={hi} />}
         {surf && hover && <HoverGuides surf={surf} lo={lo} hi={hi} hover={hover} />}
         <CameraFly preset={preset} nonce={presetNonce} />
-        <OrbitControls makeDefault enablePan enableZoom minDistance={6} maxDistance={26}
+        <OrbitControls makeDefault enablePan enableZoom minDistance={5} maxDistance={24}
           maxPolarAngle={Math.PI / 2.05} target={[0, 0.6, 0]} enableDamping dampingFactor={0.08} />
       </Canvas>
 
@@ -401,6 +438,14 @@ export function VolSurface({ wireframe = false, preset = 'DIAG' as CameraPreset,
             color={Math.abs(tip.skew) < 0.3 ? 'var(--dim)' : tip.skew > 0 ? 'var(--neg)' : 'var(--info)'} />
           <TipRow label="Δ 1d" value={tip.dYday == null ? 'no history' : `${tip.dYday >= 0 ? '+' : ''}${tip.dYday.toFixed(2)}`}
             color={tip.dYday == null ? 'var(--faint)' : tip.dYday >= 0 ? 'var(--neg)' : 'var(--pos)'} />
+          {tip.d5 != null && (
+            <TipRow label="Δ 5d avg" value={`${tip.d5 >= 0 ? '+' : ''}${tip.d5.toFixed(2)}`}
+              color={tip.d5 >= 0 ? 'var(--neg)' : 'var(--pos)'} />
+          )}
+          {tip.richness && (
+            <TipRow label="Richness" value={tip.richness}
+              color={tip.richness === 'Rich' ? 'var(--neg)' : tip.richness === 'Cheap' ? 'var(--info)' : 'var(--dim)'} />
+          )}
           {tip.dSession != null && (
             <TipRow label="Δ session" value={`${tip.dSession >= 0 ? '+' : ''}${tip.dSession.toFixed(2)}`}
               color={tip.dSession >= 0 ? 'var(--neg)' : 'var(--pos)'} />

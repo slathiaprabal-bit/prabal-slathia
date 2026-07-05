@@ -9,12 +9,14 @@ import { sampleScale } from '../../lib/format';
 // 2D strike × expiry IV heatmap — the same data and (live-normalized) color
 // scale as the 3D surface. Hover reads the point; click selects the slice pair
 // shared with the surface, smile and term structure.
-export function IVHeatmap() {
+export function IVHeatmap({ surfOverride = null, xMode = 'STRIKE' }: {
+  surfOverride?: import('../../types').Surface | null; xMode?: 'STRIKE' | 'MONEYNESS';
+}) {
   const { snap } = useVolSnap();               // replay-aware
   const sel = useVolSelection();
-  const surf = snap?.surface;
+  const surf = surfOverride ?? snap?.surface;
   const spot = snap?.spot ?? 0;
-  const ydayGrid = snap?.volHistory?.surfaceYesterday ?? null;
+  const ydayGrid = surf === snap?.surface ? snap?.volHistory?.surfaceYesterday ?? null : null;
   const { ref, width, height } = useSize<HTMLDivElement>();
   const [hover, setHover] = useState<{ i: number; j: number } | null>(null);
   const { lo, hi } = useMemo(() => gridRange(surf?.iv ?? []), [surf]);
@@ -72,7 +74,9 @@ export function IVHeatmap() {
                 <text key={i} x={(i + 0.5) * cw} y={h + 13} fontSize="7" fill="#5b616b"
                   textAnchor={i === 0 ? 'start' : i === nx - 1 ? 'end' : 'middle'} className="mono"
                   opacity={Math.abs(i - atmI) < nx * 0.12 ? 0 : 1}>
-                  {Math.round(strikes[i] / 100) * 100}
+                  {xMode === 'MONEYNESS' && spot
+                    ? `${Math.log(strikes[i] / spot) * 100 >= 0 ? '+' : ''}${(Math.log(strikes[i] / spot) * 100).toFixed(1)}%`
+                    : Math.round(strikes[i] / 100) * 100}
                 </text>
               ))}
               {expiries.map((d, j) => (

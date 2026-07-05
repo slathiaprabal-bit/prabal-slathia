@@ -15,7 +15,7 @@ import numpy as np
 
 from quant_engine.config import Config
 from quant_engine.report import build_decision
-from quant_engine.surface_dashboard import build_surface
+from quant_engine.surface_dashboard import build_surface, parametric_surface
 from quant_engine.positioning import build_synthetic_chain
 from quant_engine.regimes import MarketRegime
 
@@ -251,6 +251,18 @@ def build_snapshot(cfg: Config, mc: dict | None = None,
         "iv": grid.round(2).tolist(),
         "live": not pos.synthetic,
     }
+    # The smooth fitted "Model" surface is always served alongside, so the
+    # terminal can toggle Live (irregular, real chain) vs Model (parametric fit).
+    try:
+        m_strikes, m_dtes, m_grid = parametric_surface(vs)
+        surface_model = {
+            "strikes": m_strikes.round(0).tolist(),
+            "expiries": m_dtes.round(0).tolist(),
+            "iv": m_grid.round(2).tolist(),
+            "live": False,
+        }
+    except Exception:
+        surface_model = None
     # Front-expiry smile + ATM term structure derived from the surface.
     probe.mark("surface.smile_term", grid_shape=list(grid.shape),
                iv_min=float(grid.min()), iv_max=float(grid.max()))
@@ -390,7 +402,7 @@ def build_snapshot(cfg: Config, mc: dict | None = None,
             "sigma2": [vs.sigma2_lo, vs.sigma2_hi],
             "pInside1": vs.p_inside_1sigma,
         },
-        "surface": surface, "smile": smile, "term": term,
+        "surface": surface, "surfaceModel": surface_model, "smile": smile, "term": term,
         "volHistory": vol_history,
         "greeks": g.as_dict(),
         "chain": chain, "chainSynthetic": chain_syn,

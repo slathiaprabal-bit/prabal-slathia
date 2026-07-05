@@ -196,6 +196,7 @@ export interface Snapshot {
   regime: Regime;
   vol: VolBlock;
   surface: Surface;
+  surfaceModel?: Surface | null;   // smooth parametric fit, served alongside the live surface
   smile: Curve;
   term: Curve;
   volHistory?: VolHistory | null;

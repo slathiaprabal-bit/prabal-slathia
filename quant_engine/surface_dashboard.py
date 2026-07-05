@@ -62,11 +62,7 @@ def build_surface(vs, config: Config, n_strike: int = 41, n_dte: int = 28):
     """IV surface: real NSE per-strike IV when available, else parametric.
 
     Returns (strikes, dtes, iv_grid) where iv_grid[j, i] is IV% at
-    strike[i], dte[j]. The parametric fallback models the two stylised facts of
-    index vol:
-      * negative skew/smile across strikes (OTM puts bid, calls cheaper)
-      * term structure that backwardates in high-IV-rank (stress) regimes
-        and contangos in calm low-IV-rank regimes.
+    strike[i], dte[j].
     """
     # Prefer the live chain's real implied-vol skew/term when reachable.
     if getattr(config, "use_live", True) and getattr(config, "use_live_chain", True):
@@ -79,7 +75,17 @@ def build_surface(vs, config: Config, n_strike: int = 41, n_dte: int = 28):
                     return live
         except Exception:
             pass
+    return parametric_surface(vs, n_strike, n_dte)
 
+
+def parametric_surface(vs, n_strike: int = 41, n_dte: int = 28):
+    """Smooth fitted "Model" surface from the vol state (no chain needed).
+
+    Models the stylised facts of index vol:
+      * negative skew/smile across strikes (OTM puts bid, calls cheaper)
+      * term structure that backwardates in high-IV-rank (stress) regimes
+        and contangos in calm low-IV-rank regimes.
+    """
     spot = vs.spot
     atm = vs.vix if vs.vix == vs.vix else 14.0          # ATM IV anchor (%)
     ivr = (vs.iv_rank if vs.iv_rank == vs.iv_rank else 50.0) / 100.0

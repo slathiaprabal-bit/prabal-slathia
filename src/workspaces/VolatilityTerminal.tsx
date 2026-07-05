@@ -13,18 +13,20 @@ import { SmileChart } from '../components/vol/SmileChart';
 import { TermStructureChart } from '../components/vol/TermStructureChart';
 import { IVHeatmap } from '../components/vol/IVHeatmap';
 import { VolCycleReplay } from '../components/vol/VolCycleReplay';
-import type { CameraPreset } from '../components/VolSurface';
+import type { CameraPreset, XAxisMode } from '../components/VolSurface';
 
 const VolSurface = lazy(() =>
   import('../components/VolSurface').then((m) => ({ default: m.VolSurface })),
 );
 
 type SurfaceView = 'SURFACE' | 'WIREFRAME' | 'HEATMAP';
+type SurfMode = 'LIVE' | 'MODEL';
 const PRESETS: { id: CameraPreset; label: string }[] = [
-  { id: 'DIAG', label: 'Diag' },
+  { id: 'PERSPECTIVE', label: 'Persp' },
   { id: 'TOP', label: 'Top' },
-  { id: 'FRONT', label: 'Front' },
-  { id: 'SIDE', label: 'Side' },
+  { id: 'SMILE', label: 'Smile' },
+  { id: 'TERM', label: 'Term' },
+  { id: 'SKEW', label: 'Skew' },
 ];
 
 export function VolatilityTerminal() {
@@ -39,13 +41,21 @@ export function VolatilityTerminal() {
 
 function Inner() {
   const [view, setView] = useState<SurfaceView>('SURFACE');
-  const [preset, setPreset] = useState<CameraPreset>('DIAG');
+  const [preset, setPreset] = useState<CameraPreset>('PERSPECTIVE');
   const [presetNonce, setPresetNonce] = useState(0);
+  const [surfMode, setSurfMode] = useState<SurfMode>('LIVE');
+  const [xMode, setXMode] = useState<XAxisMode>('STRIKE');
   const vol = useVolState();                 // replay-aware engine state
   const { snap, replayingAt } = useVolSnap();
   const sel = useVolSelection();
 
   const surf = snap?.surface;
+  // LIVE vs MODEL: the toggle only exists when the primary surface is the real
+  // chain AND a fitted model is served; replay always shows the recorded surface.
+  const canToggleMode = !replayingAt && !!surf?.live && !!snap?.surfaceModel;
+  const effMode: SurfMode = canToggleMode ? surfMode : surf?.live ? 'LIVE' : 'MODEL';
+  const surfOverride = canToggleMode && surfMode === 'MODEL' ? snap!.surfaceModel! : null;
+
   const selChip = sel.expiryIdx != null && sel.strikeIdx != null && surf
     ? `${Math.round(surf.expiries[sel.expiryIdx] ?? 0)}d · K ${Math.round(surf.strikes[sel.strikeIdx] ?? 0)}`
     : null;
@@ -67,18 +77,30 @@ function Inner() {
           <Seg active={view === 'HEATMAP'} onClick={() => setView('HEATMAP')} icon={<LayoutGrid size={11} />} label="Heatmap" />
         </div>
 
-        {/* camera presets — instant institutional viewpoints */}
-        {view !== 'HEATMAP' && (
-          <div className="absolute right-3 top-[38px] z-10 flex items-center gap-1">
-            {PRESETS.map((p) => (
-              <button key={p.id} onClick={() => fly(p.id)}
-                className="rounded-[4px] border px-1.5 py-0.5 text-[8px] font-semibold tracking-wide transition"
-                style={{ borderColor: preset === p.id ? 'rgba(244,183,64,0.35)' : 'var(--line)', color: preset === p.id ? 'var(--gold)' : 'var(--dim)' }}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* camera presets + data/axis modes — instant institutional viewpoints */}
+        <div className="absolute right-3 top-[38px] z-10 flex items-center gap-1">
+          {view !== 'HEATMAP' && PRESETS.map((p) => (
+            <button key={p.id} onClick={() => fly(p.id)}
+              className="rounded-[4px] border px-1.5 py-0.5 text-[8px] font-semibold tracking-wide transition"
+              style={{ borderColor: preset === p.id ? 'rgba(244,183,64,0.35)' : 'var(--line)', color: preset === p.id ? 'var(--gold)' : 'var(--dim)' }}>
+              {p.label}
+            </button>
+          ))}
+          <span className="mx-0.5 h-3 w-px bg-[color:var(--line)]" />
+          {canToggleMode && (['LIVE', 'MODEL'] as SurfMode[]).map((m) => (
+            <button key={m} onClick={() => setSurfMode(m)}
+              title={m === 'LIVE' ? 'Raw chain surface — real market irregularities' : 'Smooth parametric fit'}
+              className="rounded-[4px] border px-1.5 py-0.5 text-[8px] font-semibold tracking-wide transition"
+              style={{ borderColor: effMode === m ? 'rgba(90,167,255,0.4)' : 'var(--line)', color: effMode === m ? 'var(--info)' : 'var(--dim)' }}>
+              {m}
+            </button>
+          ))}
+          <button onClick={() => setXMode(xMode === 'STRIKE' ? 'MONEYNESS' : 'STRIKE')}
+            title="Toggle strike / log-moneyness axis"
+            className="rounded-[4px] border border-[color:var(--line)] px-1.5 py-0.5 text-[8px] font-semibold tracking-wide text-[color:var(--dim)] transition hover:text-[color:var(--text)]">
+            {xMode === 'STRIKE' ? 'K' : 'ln(K/S)'}
+          </button>
+        </div>
 
         <div className="absolute left-3.5 top-10 z-10 flex items-center gap-1.5">
           <SurfaceBadge />
@@ -100,10 +122,11 @@ function Inner() {
         <IVLegend />
 
         {view === 'HEATMAP'
-          ? <IVHeatmap />
+          ? <IVHeatmap surfOverride={surfOverride} xMode={xMode} />
           : (
             <Suspense fallback={<CanvasFallback />}>
-              <VolSurface wireframe={view === 'WIREFRAME'} preset={preset} presetNonce={presetNonce} />
+              <VolSurface wireframe={view === 'WIREFRAME'} preset={preset} presetNonce={presetNonce}
+                surfOverride={surfOverride} xMode={xMode} />
             </Suspense>
           )}
       </section>
