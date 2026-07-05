@@ -23,6 +23,7 @@ from .greeks import position_greeks
 from .instrument import Probe
 from .strategy_engine import MarketConditions, rank_strategies
 from .volhistory import record_and_derive
+from .volreplay import record as record_replay
 
 
 # 12 engine regimes -> 6 UI states the spec asks for.
@@ -264,6 +265,21 @@ def build_snapshot(cfg: Config, mc: dict | None = None,
         vol_history = record_and_derive(spot, strikes, dtes, grid)
     except Exception:
         vol_history = None
+    # Intraday replay sample — the Session Replay scrubber re-renders the vol
+    # panels at any recorded moment of the current session.
+    try:
+        record_replay({
+            "spot": round(spot, 1),
+            "vixChg": reg.vix_chg,
+            "vol": {
+                "vix": vs.vix, "ivRank": round(ivr, 1), "ivPctile": vs.iv_pctile,
+                "hv20": vs.hv.get(20, float("nan")), "vrp": vs.iv_minus_hv,
+                "emExpiry": vs.em_expiry, "pInside1": vs.p_inside_1sigma,
+            },
+            "smile": smile, "term": term, "surface": surface,
+        })
+    except Exception:
+        pass
 
     # --- Greeks (presentation layer) -------------------------------------
     probe.mark("position_greeks", spot=spot, vix=vs.vix, t=cfg.dte / 365.0,

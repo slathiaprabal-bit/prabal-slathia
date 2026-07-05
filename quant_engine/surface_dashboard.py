@@ -90,9 +90,13 @@ def build_surface(vs, config: Config, n_strike: int = 41, n_dte: int = 28):
     m = strikes / spot - 1.0
 
     # Skew: puts (m<0) richer. Slope steepens with IV-rank; smile curvature.
+    # Moneyness is tanh-saturated (~±7%) so the far wings flatten toward an
+    # asymptote like a real index smile instead of accelerating quadratically.
     skew_slope = 55.0 + 35.0 * ivr        # vol points per unit moneyness
     smile_curv = 180.0 + 120.0 * ivr
-    skew = -skew_slope * m + smile_curv * m * m          # per-strike add to ATM
+    mw = 0.07
+    ms = mw * np.tanh(m / mw)
+    skew = -skew_slope * ms + smile_curv * ms * ms       # per-strike add to ATM
 
     # Term: high IV-rank -> backwardation (short-dated richer), low -> contango.
     ref = 7.0

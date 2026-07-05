@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useTerminal } from '../../store';
+import { useVolSnap } from '../../lib/vol/replay';
 import { useSize } from '../../lib/useSize';
 import { IV_STOPS } from '../../theme';
 import { sampleScale } from '../../lib/format';
@@ -10,9 +10,10 @@ const IV_LO = 8, IV_HI = 42; // same scale domain as the 3D surface / legend
 // surface, readable at a glance. Hover shows strike, expiry, IV and the real
 // 1-day IV change where history exists.
 export function IVHeatmap() {
-  const surf = useTerminal((s) => s.snap?.surface);
-  const spot = useTerminal((s) => s.snap?.spot ?? 0);
-  const ydayGrid = useTerminal((s) => s.snap?.volHistory?.surfaceYesterday ?? null);
+  const { snap } = useVolSnap();               // replay-aware
+  const surf = snap?.surface;
+  const spot = snap?.spot ?? 0;
+  const ydayGrid = snap?.volHistory?.surfaceYesterday ?? null;
   const { ref, width, height } = useSize<HTMLDivElement>();
   const [hover, setHover] = useState<{ i: number; j: number } | null>(null);
 
@@ -76,6 +77,7 @@ export function IVHeatmap() {
               }}>
               <div className="mono text-[9px] font-bold text-[color:var(--text)]">
                 {strikes[hover.i].toLocaleString('en-IN')} · {Math.round(expiries[hover.j])}d
+                <span className="ml-1 text-[color:var(--faint)]">({((strikes[hover.i] / spot - 1) * 100).toFixed(1)}%)</span>
               </div>
               <div className="flex items-center justify-between gap-3 text-[8px]">
                 <span className="text-[color:var(--dim)]">IV</span>
@@ -85,6 +87,12 @@ export function IVHeatmap() {
                 <span className="text-[color:var(--dim)]">Δ 1d</span>
                 <span className="mono font-semibold" style={{ color: dYday == null ? 'var(--faint)' : dYday >= 0 ? 'var(--neg)' : 'var(--pos)' }}>
                   {dYday == null ? 'no history' : `${dYday >= 0 ? '+' : ''}${dYday.toFixed(2)}`}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3 text-[8px]">
+                <span className="text-[color:var(--dim)]">Skew vs ATM</span>
+                <span className="mono font-semibold text-[color:var(--text)]">
+                  {`${iv[hover.j][hover.i] - iv[hover.j][atmI] >= 0 ? '+' : ''}${(iv[hover.j][hover.i] - iv[hover.j][atmI]).toFixed(2)}`}
                 </span>
               </div>
             </div>

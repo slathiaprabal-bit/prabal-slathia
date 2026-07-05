@@ -126,6 +126,13 @@ def health():
     return {"ok": True}
 
 
+@app.get("/api/vol-replay")
+def vol_replay():
+    """Intraday volatility replay samples for the current IST session."""
+    from .volreplay import session
+    return JSONResponse(_clean(session()))
+
+
 def _log_error(payload: dict) -> None:
     """Persist the full traceback so a single live throw is never lost."""
     try:

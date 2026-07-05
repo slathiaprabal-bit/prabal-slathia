@@ -145,6 +145,19 @@ def record_and_derive(spot: float, strikes: np.ndarray, dtes: np.ndarray,
     if smiles5:
         avg5 = np.mean(np.vstack(smiles5), axis=0).round(2).tolist()
 
+    # 5-day average tenor curve — mean of prior days' curves, per-tenor over the
+    # days where that tenor was observed (null when never observed).
+    tenors_avg5 = None
+    prior5 = prior_keys[-5:]
+    if prior5:
+        cols: list[list[float]] = [[] for _ in TENOR_DTES]
+        for k in prior5:
+            d = store[k]
+            for ti, v in enumerate(_tenor_curve(d["spot"], d["strikes"], d["dtes"], d["iv"])):
+                if v is not None:
+                    cols[ti].append(v)
+        tenors_avg5 = [round(float(np.mean(c)), 2) if c else None for c in cols]
+
     return {
         "yesterdayDate": ykey,
         "days": len(prior_keys),
@@ -156,5 +169,6 @@ def record_and_derive(spot: float, strikes: np.ndarray, dtes: np.ndarray,
             "dte": TENOR_DTES,
             "today": _tenor_curve(spot, strikes.tolist(), dtes.tolist(), grid.tolist()),
             "yesterday": y_tenors,
+            "avg5": tenors_avg5,
         },
     }

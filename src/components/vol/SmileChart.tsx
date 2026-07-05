@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { scaleLinear } from 'd3-scale';
 import { line as d3line, curveCatmullRom } from 'd3-shape';
-import { useTerminal } from '../../store';
+import { useVolSnap } from '../../lib/vol/replay';
 import { useSize } from '../../lib/useSize';
+import { bs } from '../../lib/adjust/bs';
 
 // Institutional volatility smile: put wing / ATM / call wing, spot line,
 // REAL historical overlays (yesterday, 5-day average — from the backend vol
@@ -14,13 +15,14 @@ const C_YDAY = '#8b919c';
 const C_AVG5 = 'var(--info)';
 
 export function SmileChart() {
-  const snap = useTerminal((s) => s.snap);
+  const { snap } = useVolSnap();
   const { ref, width, height } = useSize<HTMLDivElement>();
   const [richness, setRichness] = useState(false);
   const [hover, setHover] = useState<number | null>(null);
 
   const smile = snap?.smile;
   const spot = snap?.spot ?? 0;
+  const frontDte = snap?.surface?.expiries?.[0] ?? 7;
   const hist = snap?.volHistory ?? null;
   const strikes = smile?.strikes ?? [];
   const iv = smile?.iv ?? [];
@@ -73,7 +75,7 @@ export function SmileChart() {
       <div ref={ref} className="relative min-h-0 flex-1">
         {width > 20 && height > 20 && (
           <Plot width={width} height={height} strikes={strikes} iv={iv} yday={yday} avg5={avg5}
-            spot={spot} richness={richness && canRich} hover={hover} setHover={setHover} />
+            spot={spot} frontDte={frontDte} richness={richness && canRich} hover={hover} setHover={setHover} />
         )}
       </div>
 
@@ -86,9 +88,9 @@ export function SmileChart() {
   );
 }
 
-function Plot({ width, height, strikes, iv, yday, avg5, spot, richness, hover, setHover }: {
+function Plot({ width, height, strikes, iv, yday, avg5, spot, frontDte, richness, hover, setHover }: {
   width: number; height: number; strikes: number[]; iv: number[];
-  yday: number[] | null; avg5: number[] | null; spot: number;
+  yday: number[] | null; avg5: number[] | null; spot: number; frontDte: number;
   richness: boolean; hover: number | null; setHover: (i: number | null) => void;
 }) {
   const pad = { t: 8, r: 8, b: 16, l: 28 };
@@ -149,8 +151,9 @@ function Plot({ width, height, strikes, iv, yday, avg5, spot, richness, hover, s
               fill={richness ? richColor(i) : C_NOW} stroke="#000" strokeWidth={0.5} />
           ))}
 
-          {/* spot line + ATM diamond */}
+          {/* spot line + ATM marker */}
           <line x1={spotX} x2={spotX} y1={12} y2={h} stroke="rgba(255,255,255,0.22)" strokeDasharray="3 3" />
+          <text x={spotX} y={9} fontSize="7" fill="#c9ced6" letterSpacing="0.1em" textAnchor="middle">ATM</text>
           <text x={spotX} y={h + 12} fontSize="7.5" fill="#c9ced6" textAnchor="middle" className="mono">
             SPOT {Math.round(spot).toLocaleString('en-IN')}
           </text>
@@ -170,21 +173,26 @@ function Plot({ width, height, strikes, iv, yday, avg5, spot, richness, hover, s
         </g>
       </svg>
 
-      {/* tooltip */}
-      {hi != null && (
-        <div className="pointer-events-none absolute z-10 rounded-[5px] border border-[color:var(--line)] bg-black/85 px-2 py-1.5"
-          style={{ left: Math.min(width - 130, Math.max(0, pad.l + xs(strikes[hi]) + 8)), top: 6 }}>
-          <div className="mono text-[9px] font-bold text-[color:var(--text)]">
-            {strikes[hi].toLocaleString('en-IN')}
-            <span className="ml-1 text-[color:var(--faint)]">({((strikes[hi] / spot - 1) * 100).toFixed(1)}%)</span>
+      {/* tooltip — strike · moneyness · IV · delta · Δ vs history */}
+      {hi != null && (() => {
+        const kind = strikes[hi] < spot ? 'P' : 'C';
+        const delta = bs(spot, strikes[hi], Math.max(frontDte, 0.5) / 365, iv[hi] / 100, 0.066, kind).delta;
+        return (
+          <div className="pointer-events-none absolute z-10 rounded-[5px] border border-[color:var(--line)] bg-black/85 px-2 py-1.5"
+            style={{ left: Math.min(width - 130, Math.max(0, pad.l + xs(strikes[hi]) + 8)), top: 6 }}>
+            <div className="mono text-[9px] font-bold text-[color:var(--text)]">
+              {strikes[hi].toLocaleString('en-IN')}
+              <span className="ml-1 text-[color:var(--faint)]">({((strikes[hi] / spot - 1) * 100).toFixed(1)}%)</span>
+            </div>
+            <Row label="IV" value={`${iv[hi].toFixed(2)}%`} color="var(--gold)" />
+            <Row label={`${kind === 'P' ? 'Put' : 'Call'} delta`} value={delta.toFixed(2)} color="var(--text)" />
+            {yday && <Row label="Δ vs yday" value={`${iv[hi] - yday[hi] >= 0 ? '+' : ''}${(iv[hi] - yday[hi]).toFixed(2)}`}
+              color={iv[hi] - yday[hi] >= 0 ? 'var(--neg)' : 'var(--pos)'} />}
+            {avg5 && <Row label="Δ vs 5d avg" value={`${iv[hi] - avg5[hi] >= 0 ? '+' : ''}${(iv[hi] - avg5[hi]).toFixed(2)}`}
+              color={iv[hi] - avg5[hi] >= 0 ? 'var(--neg)' : 'var(--pos)'} />}
           </div>
-          <Row label="Current" value={`${iv[hi].toFixed(2)}%`} color="var(--gold)" />
-          {yday && <Row label="Δ vs yday" value={`${iv[hi] - yday[hi] >= 0 ? '+' : ''}${(iv[hi] - yday[hi]).toFixed(2)}`}
-            color={iv[hi] - yday[hi] >= 0 ? 'var(--neg)' : 'var(--pos)'} />}
-          {avg5 && <Row label="Δ vs 5d avg" value={`${iv[hi] - avg5[hi] >= 0 ? '+' : ''}${(iv[hi] - avg5[hi]).toFixed(2)}`}
-            color={iv[hi] - avg5[hi] >= 0 ? 'var(--neg)' : 'var(--pos)'} />}
-        </div>
-      )}
+        );
+      })()}
     </>
   );
 }

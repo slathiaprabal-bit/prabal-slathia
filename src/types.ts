@@ -60,7 +60,21 @@ export interface VolHistory {
     dte: number[];
     today: (number | null)[];        // null = beyond observed DTE range
     yesterday: (number | null)[] | null;
+    avg5: (number | null)[] | null;
   };
+}
+
+// One intraday replay sample (api/volreplay.py) — enough to re-render the
+// smile, term structure, surface and vol engine at that recorded moment.
+export interface ReplaySample {
+  ts: string;
+  t: string;    // HH:MM IST
+  spot: number;
+  vixChg: number;
+  vol: { vix: number; ivRank: number; ivPctile: number; hv20: number; vrp: number; emExpiry: number; pInside1: number };
+  smile: Curve;
+  term: Curve;
+  surface: Surface;
 }
 
 export interface Greeks {

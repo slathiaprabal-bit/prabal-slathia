@@ -3,9 +3,10 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useTerminal } from '../store';
+import { useVolSnap } from '../lib/vol/replay';
 import { REGIME_THEME, IV_STOPS } from '../theme';
 import { sampleScale } from '../lib/format';
-import type { RegimeState } from '../types';
+import type { RegimeState, Surface } from '../types';
 
 // Hover payload for the surface tooltip — grid indices + canvas-local pixel pos.
 export interface SurfaceHover { i: number; j: number; px: number; py: number; }
@@ -22,8 +23,7 @@ function rgbStr(s: string): [number, number, number] {
   return [+m[1] / 255, +m[2] / 255, +m[3] / 255];
 }
 
-function SurfaceMesh({ wireframe, onHover }: { wireframe: boolean; onHover: (h: SurfaceHover | null) => void }) {
-  const surf = useTerminal((s) => s.snap?.surface);
+function SurfaceMesh({ surf, wireframe, onHover }: { surf: Surface | undefined; wireframe: boolean; onHover: (h: SurfaceHover | null) => void }) {
   const regime = (useTerminal((s) => s.snap?.regime.state) ?? 'NORMAL') as RegimeState;
 
   const nx = surf?.strikes.length ?? 41;
@@ -130,6 +130,15 @@ function SurfaceMesh({ wireframe, onHover }: { wireframe: boolean; onHover: (h: 
   );
 }
 
+function TipRow({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-[8px]">
+      <span className="text-[color:var(--dim)]">{label}</span>
+      <span className="mono font-semibold" style={{ color }}>{value}</span>
+    </div>
+  );
+}
+
 function Lights() {
   return (
     <>
@@ -161,12 +170,21 @@ function CameraRig() {
 
 export function VolSurface({ wireframe = false }: { wireframe?: boolean }) {
   const [hover, setHover] = useState<SurfaceHover | null>(null);
-  const surf = useTerminal((s) => s.snap?.surface);
-  const ydayGrid = useTerminal((s) => s.snap?.volHistory?.surfaceYesterday ?? null);
+  const { snap } = useVolSnap();               // replay-aware surface
+  const surf = snap?.surface;
+  const spot = snap?.spot ?? 0;
+  const ydayGrid = snap?.volHistory?.surfaceYesterday ?? null;
 
   const iv = hover && surf ? surf.iv[hover.j]?.[hover.i] : null;
   const dYday = hover && iv != null && ydayGrid?.[hover.j]?.[hover.i] != null
     ? iv - ydayGrid[hover.j][hover.i] : null;
+  // Skew at the hovered point: its IV minus the same expiry's ATM IV.
+  let atmI = 0;
+  if (surf && spot) for (let i = 1; i < surf.strikes.length; i++) {
+    if (Math.abs(surf.strikes[i] - spot) < Math.abs(surf.strikes[atmI] - spot)) atmI = i;
+  }
+  const skew = hover && iv != null && surf ? iv - surf.iv[hover.j][atmI] : null;
+  const moneyness = hover && surf && spot ? (surf.strikes[hover.i] / spot - 1) * 100 : null;
 
   return (
     <div className="absolute inset-0">
@@ -179,7 +197,7 @@ export function VolSurface({ wireframe = false }: { wireframe?: boolean }) {
         <fog attach="fog" args={['#000000', 20, 42]} />
         <Lights />
         <FloorGrid />
-        <SurfaceMesh wireframe={wireframe} onHover={setHover} />
+        <SurfaceMesh surf={surf} wireframe={wireframe} onHover={setHover} />
         <CameraRig />
         <OrbitControls
           enablePan
@@ -193,24 +211,21 @@ export function VolSurface({ wireframe = false }: { wireframe?: boolean }) {
         />
       </Canvas>
 
-      {/* data tooltip — strike / expiry / IV / real 1-day change */}
+      {/* data tooltip — strike · DTE · moneyness · IV · Δ1d · skew vs ATM */}
       {hover && surf && iv != null && (
         <div className="pointer-events-none absolute z-20 rounded-[5px] border border-[color:var(--line)] bg-black/85 px-2 py-1.5"
-          style={{ left: Math.min(hover.px + 14, window.innerWidth * 0.6), top: Math.max(2, hover.py - 54) }}>
+          style={{ left: Math.min(hover.px + 14, window.innerWidth * 0.6), top: Math.max(2, hover.py - 66) }}>
           <div className="mono text-[9px] font-bold text-[color:var(--text)]">
             {surf.strikes[hover.i].toLocaleString('en-IN')} · {Math.round(surf.expiries[hover.j])}d
+            {moneyness != null && <span className="ml-1 text-[color:var(--faint)]">({moneyness >= 0 ? '+' : ''}{moneyness.toFixed(1)}%)</span>}
           </div>
-          <div className="flex items-center justify-between gap-3 text-[8px]">
-            <span className="text-[color:var(--dim)]">IV</span>
-            <span className="mono font-semibold text-[color:var(--gold)]">{iv.toFixed(2)}%</span>
-          </div>
-          <div className="flex items-center justify-between gap-3 text-[8px]">
-            <span className="text-[color:var(--dim)]">Δ 1d</span>
-            <span className="mono font-semibold"
-              style={{ color: dYday == null ? 'var(--faint)' : dYday >= 0 ? 'var(--neg)' : 'var(--pos)' }}>
-              {dYday == null ? 'no history' : `${dYday >= 0 ? '+' : ''}${dYday.toFixed(2)}`}
-            </span>
-          </div>
+          <TipRow label="IV" value={`${iv.toFixed(2)}%`} color="var(--gold)" />
+          <TipRow label="Δ 1d" value={dYday == null ? 'no history' : `${dYday >= 0 ? '+' : ''}${dYday.toFixed(2)}`}
+            color={dYday == null ? 'var(--faint)' : dYday >= 0 ? 'var(--neg)' : 'var(--pos)'} />
+          {skew != null && (
+            <TipRow label="Skew vs ATM" value={`${skew >= 0 ? '+' : ''}${skew.toFixed(2)}`}
+              color={Math.abs(skew) < 0.3 ? 'var(--dim)' : skew > 0 ? 'var(--neg)' : 'var(--info)'} />
+          )}
         </div>
       )}
     </div>

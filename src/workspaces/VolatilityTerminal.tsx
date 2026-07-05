@@ -2,14 +2,14 @@ import { lazy, Suspense, useState } from 'react';
 import { motion } from 'motion/react';
 import { Box, Grid3x3, LayoutGrid } from 'lucide-react';
 import { useTerminal } from '../store';
-import { useVol } from '../lib/vol/useVol';
+import { VolReplayProvider, useVolSnap, useVolState } from '../lib/vol/replay';
 import { Panel } from '../components/ui/Panel';
 import { VolMetricsGrid } from '../components/panels/VolMetricsGrid';
 import { VolEnginePanel } from '../components/vol/VolEnginePanel';
 import { SmileChart } from '../components/vol/SmileChart';
 import { TermStructureChart } from '../components/vol/TermStructureChart';
 import { IVHeatmap } from '../components/vol/IVHeatmap';
-import { RecommendedStrategies } from '../components/vol/RecommendedStrategies';
+import { VolCycleReplay } from '../components/vol/VolCycleReplay';
 
 const VolSurface = lazy(() =>
   import('../components/VolSurface').then((m) => ({ default: m.VolSurface })),
@@ -18,8 +18,17 @@ const VolSurface = lazy(() =>
 type SurfaceView = 'SURFACE' | 'WIREFRAME' | 'HEATMAP';
 
 export function VolatilityTerminal() {
+  return (
+    <VolReplayProvider>
+      <Inner />
+    </VolReplayProvider>
+  );
+}
+
+function Inner() {
   const [view, setView] = useState<SurfaceView>('SURFACE');
-  const vol = useVol();
+  const vol = useVolState();                 // replay-aware engine state
+  const { replayingAt } = useVolSnap();
 
   return (
     <div className="grid h-full min-h-0 grid-cols-12 grid-rows-6 gap-2">
@@ -37,6 +46,12 @@ export function VolatilityTerminal() {
         </div>
 
         <SurfaceBadge />
+        {replayingAt && (
+          <div className="pointer-events-none absolute left-3.5 top-10 z-10 flex items-center gap-1.5 rounded-[4px] border border-[color:var(--gold)] bg-black/60 px-1.5 py-0.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--gold)]" />
+            <span className="text-[7px] font-bold tracking-widest text-[color:var(--gold)]">REPLAY {replayingAt}</span>
+          </div>
+        )}
 
         {/* shared IV color legend */}
         <div className="pointer-events-none absolute right-3.5 top-1/2 z-10 flex -translate-y-1/2 items-center gap-1">
@@ -85,8 +100,8 @@ export function VolatilityTerminal() {
         <TermStructureChart />
       </Panel>
 
-      <Panel title="Recommended Strategies" accent="var(--violet)" className="col-start-10 col-span-3 row-start-5 row-span-2" delay={0.24}>
-        {vol ? <RecommendedStrategies v={vol} /> : <Empty />}
+      <Panel title="Volatility Cycle · Session Replay" accent="var(--violet)" className="col-start-10 col-span-3 row-start-5 row-span-2" delay={0.24}>
+        <VolCycleReplay />
       </Panel>
     </div>
   );

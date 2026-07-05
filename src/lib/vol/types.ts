@@ -28,6 +28,14 @@ export interface VolInputs {
   pInside1: number;  // probability inside 1σ range (0..1)
 }
 
+// One line of the institutional interpretation grid: dimension → verdict.
+export interface InterpretationBlock {
+  label: string;   // PREMIUM / SKEW / REGIME / FORWARD CURVE
+  value: string;   // the 10-second verdict, e.g. "Cheap"
+  detail: string;  // the supporting number, e.g. "VRP −3.2 · IV below RV"
+  tone: 'pos' | 'neg' | 'gold' | 'info' | 'dim';
+}
+
 export interface VolDriver {
   key: string;
   label: string;
@@ -46,11 +54,12 @@ export interface VolState {
   compressionProb: number;   // 0..100
   vegaBias: VegaBias;
   confidence: number;        // 0..100 — displayed as "Model Confidence"
-  action: VolAction;         // actionable signal derived from the full state
-  actionDetail: string;      // one-line rationale for the action
+  action: VolAction;         // market stance derived from the full state
+  actionDetail: string;      // one-line rationale for the stance
+  persistence: string;       // expected regime persistence, e.g. "3–6 sessions"
   drivers: VolDriver[];      // sorted, strongest first
   reasoning: string[];       // legacy short bullets (downstream consumers)
-  commentary: string[];      // institutional interpretation, sectioned "TAG · text"
+  interpretation: InterpretationBlock[]; // research-style read, one block per dimension
 
   // passthrough essentials for downstream engines
   atmIv: number;

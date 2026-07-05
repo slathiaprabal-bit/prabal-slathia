@@ -1,5 +1,6 @@
 import type {
   VolInputs, VolState, VolRegime, VolTrend, PremiumRichness, VegaBias, VolAction, VolDriver,
+  InterpretationBlock,
 } from './types';
 import { clamp, round } from './types';
 
@@ -132,11 +133,12 @@ export function computeVolState(i: VolInputs): VolState {
 
   const reasoning = buildReasoning(i, { score, regime, trend, premiumRichness, expansionProb, compressionProb, bias });
   const { action, detail: actionDetail } = classifyAction(bias, premiumRichness, regime, trend, expansionProb, compressionProb, confidence);
-  const commentary = buildCommentary(i, { score, regime, trend, premiumRichness, expansionProb, compressionProb, bias, action });
+  const interpretation = buildInterpretation(i, { regime, trend, premiumRichness, expansionProb, compressionProb });
+  const persistence = estimatePersistence(regime, trend);
 
   return {
     score, regime, trend, premiumRichness, expansionProb, compressionProb,
-    vegaBias: bias, confidence, action, actionDetail, drivers: sorted, reasoning, commentary,
+    vegaBias: bias, confidence, action, actionDetail, persistence, drivers: sorted, reasoning, interpretation,
     atmIv: i.atmIv, vix: i.vix, ivRank: i.ivRank, ivPctile: i.ivPctile, hv: i.hv,
     vrp: i.vrp, emExpiry: i.emExpiry, emPct: i.emPct, termSlope: i.termSlope,
     skew: i.skew, pInside1: i.pInside1,
@@ -167,36 +169,49 @@ function buildReasoning(
   return out;
 }
 
-// Institutional interpretation — a desk-note style read of the whole state.
-// Each line is "TAG · text" so the UI can typeset the section label.
-function buildCommentary(
+// Research-style interpretation grid — one verdict per dimension, readable in
+// ten seconds. The number that justifies each verdict rides in `detail`.
+function buildInterpretation(
   i: VolInputs,
-  s: { score: number; regime: VolRegime; trend: VolTrend; premiumRichness: PremiumRichness; expansionProb: number; compressionProb: number; bias: VegaBias; action: VolAction },
-): string[] {
-  const out: string[] = [];
+  s: { regime: VolRegime; trend: VolTrend; premiumRichness: PremiumRichness; expansionProb: number; compressionProb: number },
+): InterpretationBlock[] {
   const sgn = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}`;
 
-  out.push(`REGIME · Vol state reads ${s.regime.replace('_', ' ').toLowerCase()} — India VIX ${i.vix.toFixed(1)}, IV rank ${i.ivRank.toFixed(0)} / percentile ${i.ivPctile.toFixed(0)}, ATM IV ${i.atmIv.toFixed(1)}% vs ${i.hv.toFixed(1)}% realized. Trend ${s.trend.toLowerCase()}.`);
-
-  out.push(s.premiumRichness === 'RICH'
-    ? `VALUATION · Options are over-pricing realized risk: VRP ${sgn(i.vrp)} vol pts. Sellers are being paid to carry — the statistical edge sits with premium harvesting, sized for the regime.`
+  const premium: InterpretationBlock = s.premiumRichness === 'RICH'
+    ? { label: 'PREMIUM', value: 'Rich', detail: `VRP ${sgn(i.vrp)} · IV over RV`, tone: 'pos' }
     : s.premiumRichness === 'CHEAP'
-      ? `VALUATION · Options are under-pricing realized risk: VRP ${sgn(i.vrp)} vol pts. Convexity is on sale — long-gamma structures carry acceptably here.`
-      : `VALUATION · Premium is fairly priced (VRP ${sgn(i.vrp)}) — neither side of the vol trade is being paid; edge must come from structure or timing.`);
+      ? { label: 'PREMIUM', value: 'Cheap', detail: `VRP ${sgn(i.vrp)} · IV below RV`, tone: 'info' }
+      : { label: 'PREMIUM', value: 'Fair', detail: `VRP ${sgn(i.vrp)} · IV ≈ RV`, tone: 'gold' };
 
-  out.push(i.termSlope >= 0.4
-    ? `TERM · Contango ${sgn(i.termSlope)}: back-month IV over front — calm forward pricing. Favours calendars (own the back, rent the front) and makes rolling short premium cheaper.`
-    : i.termSlope <= -0.4
-      ? `TERM · Backwardation ${sgn(i.termSlope)}: front IV over back — the market is paying up for near-dated protection. Event/stress premium in the front; fade it only after the catalyst.`
-      : `TERM · Curve flat (${sgn(i.termSlope)}) — no timing edge between tenors.`);
-
-  out.push(i.skew <= -1
-    ? `SKEW · Put wing bid (${sgn(i.skew)}): hedging demand is elevated, put spreads finance well and jade-lizard style structures collect the skew.`
+  const skew: InterpretationBlock = i.skew <= -1
+    ? { label: 'SKEW', value: 'Put Wing Elevated', detail: `${sgn(i.skew)} · hedging demand bid`, tone: 'neg' }
     : i.skew >= 1
-      ? `SKEW · Call wing bid (${sgn(i.skew)}): upside chase in the options market — call premium is the rich side to sell.`
-      : `SKEW · Wings balanced (${sgn(i.skew)}) — no structural edge in either wing.`);
+      ? { label: 'SKEW', value: 'Call Wing Bid', detail: `${sgn(i.skew)} · upside chase`, tone: 'gold' }
+      : { label: 'SKEW', value: 'Balanced', detail: `${sgn(i.skew)} · no wing premium`, tone: 'dim' };
 
-  out.push(`PATH · Expansion ${s.expansionProb.toFixed(0)}% vs compression ${s.compressionProb.toFixed(0)}%. Expected move to expiry ±${i.emExpiry.toFixed(0)} pts (${i.emPct.toFixed(1)}%), ${(i.pInside1 * 100).toFixed(0)}% odds the underlying holds the 1σ band.`);
+  const regime: InterpretationBlock = s.compressionProb >= 57
+    ? { label: 'REGIME', value: 'Compression', detail: `${s.compressionProb.toFixed(0)}% odds · ${s.regime.replace('_', ' ').toLowerCase()} vol`, tone: 'pos' }
+    : s.expansionProb >= 57
+      ? { label: 'REGIME', value: 'Expansion', detail: `${s.expansionProb.toFixed(0)}% odds · trend ${s.trend.toLowerCase()}`, tone: 'neg' }
+      : { label: 'REGIME', value: 'Neutral', detail: `IVR ${i.ivRank.toFixed(0)} · trend ${s.trend.toLowerCase()}`, tone: 'gold' };
 
-  return out;
+  const curve: InterpretationBlock = i.termSlope >= 0.4
+    ? { label: 'FORWARD CURVE', value: i.termSlope >= 2 ? 'Steep Contango' : 'Healthy Contango', detail: `${sgn(i.termSlope)} back over front`, tone: 'pos' }
+    : i.termSlope <= -0.4
+      ? { label: 'FORWARD CURVE', value: 'Backwardation', detail: `${sgn(i.termSlope)} · front stress priced`, tone: 'neg' }
+      : { label: 'FORWARD CURVE', value: 'Flat', detail: `${sgn(i.termSlope)} · no tenor edge`, tone: 'dim' };
+
+  return [premium, skew, regime, curve];
+}
+
+// Model estimate of how long the current vol regime tends to hold, from the
+// regime's mean-reversion band tightened when the trend is actively moving.
+function estimatePersistence(regime: VolRegime, trend: VolTrend): string {
+  const band: Record<VolRegime, [number, number]> = {
+    VERY_LOW: [8, 15], LOW: [6, 12], NORMAL: [5, 10],
+    ELEVATED: [3, 6], HIGH: [2, 4], EXTREME: [1, 2],
+  };
+  let [lo, hi] = band[regime];
+  if (trend !== 'STABLE') { hi = Math.max(lo, Math.round(hi * 0.6)); lo = Math.max(1, Math.round(lo * 0.6)); }
+  return lo === hi ? `~${lo} session${lo > 1 ? 's' : ''}` : `${lo}–${hi} sessions`;
 }
