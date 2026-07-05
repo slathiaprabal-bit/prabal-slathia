@@ -99,12 +99,16 @@ def build_surface(vs, config: Config, n_strike: int = 41, n_dte: int = 28):
     skew = -skew_slope * ms + smile_curv * ms * ms       # per-strike add to ATM
 
     # Term: high IV-rank -> backwardation (short-dated richer), low -> contango.
+    # Smile/skew DECAY with maturity (a stylised fact: front expiries carry the
+    # steepest smiles, back expiries are smoother — roughly a power law in T),
+    # so each expiry gets its own curvature instead of a scaled copy.
     ref = 7.0
     term_beta = 0.22 * (ivr - 0.5)        # +ve => short > long
     grid = np.empty((n_dte, n_strike))
     for j, t in enumerate(dtes):
         term_mult = 1.0 + term_beta * (np.sqrt(ref / t) - 1.0)
-        grid[j, :] = np.clip((atm + skew) * term_mult, 5.0, None)
+        smile_decay = float(np.clip((ref / max(t, 1.0)) ** 0.35, 0.55, 1.6))
+        grid[j, :] = np.clip(atm * term_mult + skew * smile_decay, 5.0, None)
     return strikes, dtes, grid
 
 

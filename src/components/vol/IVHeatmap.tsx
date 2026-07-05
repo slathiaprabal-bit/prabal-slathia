@@ -1,21 +1,23 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useVolSnap } from '../../lib/vol/replay';
+import { useVolSelection } from '../../lib/vol/selection';
+import { gridRange } from '../../lib/vol/scale';
 import { useSize } from '../../lib/useSize';
 import { IV_STOPS } from '../../theme';
 import { sampleScale } from '../../lib/format';
 
-const IV_LO = 8, IV_HI = 42; // same scale domain as the 3D surface / legend
-
-// 2D strike × expiry IV heatmap — the same data and color scale as the 3D
-// surface, readable at a glance. Hover shows strike, expiry, IV and the real
-// 1-day IV change where history exists.
+// 2D strike × expiry IV heatmap — the same data and (live-normalized) color
+// scale as the 3D surface. Hover reads the point; click selects the slice pair
+// shared with the surface, smile and term structure.
 export function IVHeatmap() {
   const { snap } = useVolSnap();               // replay-aware
+  const sel = useVolSelection();
   const surf = snap?.surface;
   const spot = snap?.spot ?? 0;
   const ydayGrid = snap?.volHistory?.surfaceYesterday ?? null;
   const { ref, width, height } = useSize<HTMLDivElement>();
   const [hover, setHover] = useState<{ i: number; j: number } | null>(null);
+  const { lo, hi } = useMemo(() => gridRange(surf?.iv ?? []), [surf]);
 
   if (!surf) return null;
   const { strikes, expiries, iv } = surf;
@@ -39,15 +41,27 @@ export function IVHeatmap() {
           <svg width={width} height={height}>
             <g transform={`translate(${pad.l},${pad.t})`}>
               {iv.map((row, j) => row.map((v, i) => {
-                const t = Math.max(0, Math.min(1, (v - IV_LO) / (IV_HI - IV_LO)));
+                const t = Math.max(0, Math.min(1, (v - lo) / (hi - lo || 1)));
                 const isHover = hover?.i === i && hover?.j === j;
+                const isSel = sel.expiryIdx === j || sel.strikeIdx === i;
                 return (
                   <rect key={`${i}-${j}`} x={i * cw} y={h - (j + 1) * ch} width={cw + 0.5} height={ch + 0.5}
-                    fill={sampleScale(IV_STOPS, t)} opacity={isHover ? 1 : 0.92}
+                    fill={sampleScale(IV_STOPS, t)} opacity={isHover || isSel ? 1 : 0.88}
                     stroke={isHover ? '#fff' : 'none'} strokeWidth={isHover ? 1 : 0}
-                    onMouseEnter={() => setHover({ i, j })} onMouseLeave={() => setHover(null)} />
+                    style={{ cursor: 'pointer' }}
+                    onMouseEnter={() => setHover({ i, j })} onMouseLeave={() => setHover(null)}
+                    onClick={() => sel.select(j, i)} />
                 );
               }))}
+              {/* selected slice guides */}
+              {sel.expiryIdx != null && sel.expiryIdx < ny && (
+                <rect x={0} y={h - (sel.expiryIdx + 1) * ch} width={w} height={ch} fill="none"
+                  stroke="var(--gold)" strokeWidth={1} pointerEvents="none" />
+              )}
+              {sel.strikeIdx != null && sel.strikeIdx < nx && (
+                <rect x={sel.strikeIdx * cw} y={0} width={cw} height={h} fill="none"
+                  stroke="#5aa7ff" strokeWidth={1} pointerEvents="none" />
+              )}
               {/* spot column marker */}
               <line x1={(atmI + 0.5) * cw} x2={(atmI + 0.5) * cw} y1={0} y2={h} stroke="rgba(255,255,255,0.55)" strokeDasharray="3 3" strokeWidth={0.8} />
               <text x={(atmI + 0.5) * cw} y={h + 13} fontSize="7.5" fill="#c9ced6" textAnchor="middle" className="mono">

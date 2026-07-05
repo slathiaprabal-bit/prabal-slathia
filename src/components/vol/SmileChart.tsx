@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { scaleLinear } from 'd3-scale';
 import { line as d3line, curveCatmullRom } from 'd3-shape';
 import { useVolSnap } from '../../lib/vol/replay';
+import { useVolSelection } from '../../lib/vol/selection';
 import { useSize } from '../../lib/useSize';
 import { bs } from '../../lib/adjust/bs';
 
@@ -16,18 +17,25 @@ const C_AVG5 = 'var(--info)';
 
 export function SmileChart() {
   const { snap } = useVolSnap();
+  const { expiryIdx } = useVolSelection();     // surface/heatmap click syncs here
   const { ref, width, height } = useSize<HTMLDivElement>();
   const [richness, setRichness] = useState(false);
   const [hover, setHover] = useState<number | null>(null);
 
-  const smile = snap?.smile;
+  const surf = snap?.surface;
   const spot = snap?.spot ?? 0;
-  const frontDte = snap?.surface?.expiries?.[0] ?? 7;
   const hist = snap?.volHistory ?? null;
-  const strikes = smile?.strikes ?? [];
-  const iv = smile?.iv ?? [];
-  const yday = hist?.smileYesterday && hist.smileYesterday.length === iv.length ? hist.smileYesterday : null;
-  const avg5 = hist?.smileAvg5 && hist.smileAvg5.length === iv.length ? hist.smileAvg5 : null;
+
+  // Rendered slice: the selected expiry, else the front expiry.
+  const e = expiryIdx != null && surf && expiryIdx < surf.expiries.length ? expiryIdx : 0;
+  const strikes = surf?.strikes ?? snap?.smile?.strikes ?? [];
+  const iv = surf?.iv?.[e] ?? snap?.smile?.iv ?? [];
+  const sliceDte = surf?.expiries?.[e] ?? 7;
+  // Yesterday: the full aligned grid supports any slice; 5-day avg exists for
+  // the front expiry only (that's what the daily store keeps).
+  const ydayRow = hist?.surfaceYesterday?.[e] ?? (e === 0 ? hist?.smileYesterday : null);
+  const yday = ydayRow && ydayRow.length === iv.length ? ydayRow : null;
+  const avg5 = e === 0 && hist?.smileAvg5 && hist.smileAvg5.length === iv.length ? hist.smileAvg5 : null;
   const canRich = !!avg5;
 
   // Skew readout: put wing (−4% moneyness) minus call wing (+4%).
@@ -42,7 +50,7 @@ export function SmileChart() {
     return at(-0.04) - at(0.04);
   }, [strikes, iv, spot]);
 
-  if (!smile || strikes.length < 3) {
+  if (strikes.length < 3 || iv.length < 3) {
     return <div className="flex h-full items-center justify-center text-[10px] text-[color:var(--dim)]">Awaiting smile data…</div>;
   }
 
@@ -51,6 +59,11 @@ export function SmileChart() {
       {/* legend + controls — identity is never color-alone (dash patterns differ) */}
       <div className="mb-1 flex items-center justify-between">
         <div className="flex items-center gap-2.5 text-[8px] tracking-wide text-[color:var(--dim)]">
+          <span className="mono rounded-[3px] px-1 py-px text-[7.5px] font-bold tracking-wider"
+            style={{ color: e === 0 ? 'var(--dim)' : 'var(--gold)', background: 'rgba(255,255,255,0.05)' }}
+            title="Expiry slice — click the surface or heatmap to change">
+            {Math.round(sliceDte)}d{e !== 0 ? ' · SLICE' : ''}
+          </span>
           <LegendSwatch color={C_NOW} label="Current" />
           <LegendSwatch color={C_YDAY} label="Yesterday" dashed muted={!yday} />
           <LegendSwatch color={C_AVG5} label="5-Day Avg" dashed muted={!avg5} />
@@ -75,7 +88,7 @@ export function SmileChart() {
       <div ref={ref} className="relative min-h-0 flex-1">
         {width > 20 && height > 20 && (
           <Plot width={width} height={height} strikes={strikes} iv={iv} yday={yday} avg5={avg5}
-            spot={spot} frontDte={frontDte} richness={richness && canRich} hover={hover} setHover={setHover} />
+            spot={spot} frontDte={sliceDte} richness={richness && canRich} hover={hover} setHover={setHover} />
         )}
       </div>
 
