@@ -47,6 +47,22 @@ export interface Curve {
   iv: number[];
 }
 
+// Real day-over-day IV memory (backend api/volhistory.py). Fields are null
+// until real prior-day observations exist — never fabricated.
+export interface VolHistory {
+  yesterdayDate: string | null;
+  days: number;
+  smileYesterday: number[] | null;   // aligned to today's smile strikes
+  smileAvg5: number[] | null;
+  surfaceYesterday: number[][] | null; // aligned to today's surface grid
+  tenors: {
+    labels: string[];                // 1W 2W 1M 2M 3M 6M
+    dte: number[];
+    today: (number | null)[];        // null = beyond observed DTE range
+    yesterday: (number | null)[] | null;
+  };
+}
+
 export interface Greeks {
   delta: number;
   gamma: number;
@@ -168,6 +184,7 @@ export interface Snapshot {
   surface: Surface;
   smile: Curve;
   term: Curve;
+  volHistory?: VolHistory | null;
   greeks: Greeks;
   chain: ChainRow[];
   chainSynthetic: boolean;

@@ -9,6 +9,10 @@ export type VolTrend = 'RISING' | 'STABLE' | 'FALLING';
 export type PremiumRichness = 'CHEAP' | 'FAIR' | 'RICH';
 export type VegaBias = 'LONG_VEGA' | 'SHORT_VEGA' | 'NEUTRAL_VEGA';
 
+// The actionable read: what a vol trader should DO with the current state.
+// WAIT = the model sees conflicting signals or low conviction — stand aside.
+export type VolAction = 'BUY_VOL' | 'SELL_VOL' | 'NEUTRAL' | 'WAIT';
+
 export interface VolInputs {
   atmIv: number;     // ATM implied volatility %
   vix: number;       // India VIX
@@ -41,9 +45,12 @@ export interface VolState {
   expansionProb: number;     // 0..100
   compressionProb: number;   // 0..100
   vegaBias: VegaBias;
-  confidence: number;        // 0..100
+  confidence: number;        // 0..100 — displayed as "Model Confidence"
+  action: VolAction;         // actionable signal derived from the full state
+  actionDetail: string;      // one-line rationale for the action
   drivers: VolDriver[];      // sorted, strongest first
-  reasoning: string[];
+  reasoning: string[];       // legacy short bullets (downstream consumers)
+  commentary: string[];      // institutional interpretation, sectioned "TAG · text"
 
   // passthrough essentials for downstream engines
   atmIv: number;

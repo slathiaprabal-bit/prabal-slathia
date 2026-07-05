@@ -22,6 +22,7 @@ from quant_engine.regimes import MarketRegime
 from .greeks import position_greeks
 from .instrument import Probe
 from .strategy_engine import MarketConditions, rank_strategies
+from .volhistory import record_and_derive
 
 
 # 12 engine regimes -> 6 UI states the spec asks for.
@@ -257,6 +258,12 @@ def build_snapshot(cfg: Config, mc: dict | None = None,
              "iv": grid[0].round(2).tolist()}
     term = {"dte": dtes.round(0).tolist(),
             "iv": grid[:, atm_i].round(2).tolist()}
+    # Real day-over-day IV memory (yesterday / 5-day smile, tenor curves,
+    # surface change). Never fabricated — empty until history accumulates.
+    try:
+        vol_history = record_and_derive(spot, strikes, dtes, grid)
+    except Exception:
+        vol_history = None
 
     # --- Greeks (presentation layer) -------------------------------------
     probe.mark("position_greeks", spot=spot, vix=vs.vix, t=cfg.dte / 365.0,
@@ -368,6 +375,7 @@ def build_snapshot(cfg: Config, mc: dict | None = None,
             "pInside1": vs.p_inside_1sigma,
         },
         "surface": surface, "smile": smile, "term": term,
+        "volHistory": vol_history,
         "greeks": g.as_dict(),
         "chain": chain, "chainSynthetic": chain_syn,
         "positioning": {

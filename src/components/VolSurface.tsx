@@ -1,11 +1,14 @@
-import { useMemo, useRef } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { useMemo, useRef, useState } from 'react';
+import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useTerminal } from '../store';
 import { REGIME_THEME, IV_STOPS } from '../theme';
 import { sampleScale } from '../lib/format';
 import type { RegimeState } from '../types';
+
+// Hover payload for the surface tooltip — grid indices + canvas-local pixel pos.
+export interface SurfaceHover { i: number; j: number; px: number; py: number; }
 
 const W = 10; // world width (strike axis)
 const D = 7; // world depth (expiry axis)
@@ -19,12 +22,20 @@ function rgbStr(s: string): [number, number, number] {
   return [+m[1] / 255, +m[2] / 255, +m[3] / 255];
 }
 
-function SurfaceMesh({ wireframe }: { wireframe: boolean }) {
+function SurfaceMesh({ wireframe, onHover }: { wireframe: boolean; onHover: (h: SurfaceHover | null) => void }) {
   const surf = useTerminal((s) => s.snap?.surface);
   const regime = (useTerminal((s) => s.snap?.regime.state) ?? 'NORMAL') as RegimeState;
 
   const nx = surf?.strikes.length ?? 41;
   const ny = surf?.expiries.length ?? 7;
+
+  // uv → data grid indices (uv.y = 1 at the first expiry row of the plane).
+  const handleMove = (e: ThreeEvent<PointerEvent>) => {
+    if (!e.uv) return;
+    const i = Math.max(0, Math.min(nx - 1, Math.round(e.uv.x * (nx - 1))));
+    const j = Math.max(0, Math.min(ny - 1, Math.round((1 - e.uv.y) * (ny - 1))));
+    onHover({ i, j, px: e.nativeEvent.offsetX, py: e.nativeEvent.offsetY });
+  };
 
   // Higher-resolution mesh: subdivide each data cell for smoother shading.
   const SUB = 3;
@@ -90,7 +101,8 @@ function SurfaceMesh({ wireframe }: { wireframe: boolean }) {
   return (
     <group rotation={[-Math.PI / 2, 0, 0]}>
       {/* Solid shaded surface */}
-      <mesh geometry={geom} castShadow receiveShadow>
+      <mesh geometry={geom} castShadow receiveShadow
+        onPointerMove={handleMove} onPointerOut={() => onHover(null)}>
         <meshStandardMaterial
           vertexColors
           metalness={0.22}
@@ -148,6 +160,14 @@ function CameraRig() {
 }
 
 export function VolSurface({ wireframe = false }: { wireframe?: boolean }) {
+  const [hover, setHover] = useState<SurfaceHover | null>(null);
+  const surf = useTerminal((s) => s.snap?.surface);
+  const ydayGrid = useTerminal((s) => s.snap?.volHistory?.surfaceYesterday ?? null);
+
+  const iv = hover && surf ? surf.iv[hover.j]?.[hover.i] : null;
+  const dYday = hover && iv != null && ydayGrid?.[hover.j]?.[hover.i] != null
+    ? iv - ydayGrid[hover.j][hover.i] : null;
+
   return (
     <div className="absolute inset-0">
       <Canvas
@@ -159,12 +179,12 @@ export function VolSurface({ wireframe = false }: { wireframe?: boolean }) {
         <fog attach="fog" args={['#000000', 20, 42]} />
         <Lights />
         <FloorGrid />
-        <SurfaceMesh wireframe={wireframe} />
+        <SurfaceMesh wireframe={wireframe} onHover={setHover} />
         <CameraRig />
         <OrbitControls
           enablePan
           enableZoom
-          autoRotate
+          autoRotate={!hover}
           autoRotateSpeed={0.18}
           minDistance={7}
           maxDistance={26}
@@ -172,6 +192,27 @@ export function VolSurface({ wireframe = false }: { wireframe?: boolean }) {
           target={[0, 0.6, 0]}
         />
       </Canvas>
+
+      {/* data tooltip — strike / expiry / IV / real 1-day change */}
+      {hover && surf && iv != null && (
+        <div className="pointer-events-none absolute z-20 rounded-[5px] border border-[color:var(--line)] bg-black/85 px-2 py-1.5"
+          style={{ left: Math.min(hover.px + 14, window.innerWidth * 0.6), top: Math.max(2, hover.py - 54) }}>
+          <div className="mono text-[9px] font-bold text-[color:var(--text)]">
+            {surf.strikes[hover.i].toLocaleString('en-IN')} · {Math.round(surf.expiries[hover.j])}d
+          </div>
+          <div className="flex items-center justify-between gap-3 text-[8px]">
+            <span className="text-[color:var(--dim)]">IV</span>
+            <span className="mono font-semibold text-[color:var(--gold)]">{iv.toFixed(2)}%</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 text-[8px]">
+            <span className="text-[color:var(--dim)]">Δ 1d</span>
+            <span className="mono font-semibold"
+              style={{ color: dYday == null ? 'var(--faint)' : dYday >= 0 ? 'var(--neg)' : 'var(--pos)' }}>
+              {dYday == null ? 'no history' : `${dYday >= 0 ? '+' : ''}${dYday.toFixed(2)}`}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

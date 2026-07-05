@@ -16,3 +16,4 @@ __pycache__/
 quant_engine/data/official_cache.json
 quant_engine/data/secondary.json
 quant_engine/data/events_cache.json
+quant_engine/data/vol_history.json
