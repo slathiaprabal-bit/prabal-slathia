@@ -35,7 +35,7 @@ export function TopBar() {
   const regColor = regUp ? 'var(--pos)' : regDown ? 'var(--neg)' : 'var(--gold)';
 
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between border-b border-[color:var(--line)] bg-[color:var(--bg1)] px-3.5">
+    <header className="glass-rail rail-top flex shrink-0 items-center justify-between px-4">
       {/* Brand */}
       <div className="flex items-center gap-5">
         <div className="flex items-baseline gap-2">
@@ -43,7 +43,8 @@ export function TopBar() {
           <span className="flex flex-col leading-none">
             <span className="text-[8px] font-semibold tracking-[0.34em] text-[color:var(--dim)]">QUANT TERMINAL</span>
           </span>
-          <span className="ml-0.5 rounded-[4px] border border-[color:var(--gold)]/30 bg-[color:var(--gold)]/10 px-1.5 py-0.5 text-[8px] font-bold tracking-widest text-[color:var(--gold)]">
+          <span className="ml-0.5 rounded-full border border-[color:var(--accent)]/40 px-2 py-0.5 text-[8px] font-bold tracking-widest text-[color:var(--accent)]"
+            style={{ background: 'var(--accent-soft)' }}>
             V3.0
           </span>
         </div>
@@ -89,9 +90,10 @@ export function TopBar() {
       </div>
 
       {/* Status + controls */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 rounded-[6px] border border-[color:var(--line)] bg-[color:var(--bg2)] px-3 py-1.5">
-          <span className="h-1.5 w-1.5 rounded-full pulse" style={{ background: dot }} />
+      <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 rounded-full border border-[color:var(--line)] px-3 py-1.5"
+          style={{ background: 'rgba(255,255,255,0.03)' }}>
+          <span className="h-1.5 w-1.5 rounded-full pulse" style={{ background: dot, boxShadow: `0 0 8px ${dot}` }} />
           <span className="text-[10px] font-bold tracking-widest" style={{ color: dot }}>{connLabel}</span>
           <span className="mono ml-1 text-[10px] text-[color:var(--dim)]">{clock}</span>
         </div>
@@ -121,7 +123,8 @@ function IconBtn({ children, onClick }: { children: React.ReactNode; onClick?: (
   return (
     <button
       onClick={onClick}
-      className="nav-item flex h-8 w-8 items-center justify-center text-[color:var(--dim)] hover:text-[color:var(--text)]"
+      className="nav-item flex h-9 w-9 items-center justify-center rounded-full text-[color:var(--dim)] transition-transform hover:scale-[1.06] hover:text-[color:var(--text)]"
+      style={{ background: 'rgba(255,255,255,0.02)' }}
     >
       {children}
     </button>

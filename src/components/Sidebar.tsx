@@ -22,9 +22,9 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="sidebar flex flex-col">
+    <aside className="sidebar glass-rail flex flex-col">
       {/* Navigation */}
-      <nav className="flex flex-1 flex-col gap-0.5 p-2">
+      <nav className="flex flex-1 flex-col gap-1 p-2.5">
         {WORKSPACES.map(({ id, icon: Icon, label }) => {
           const active = workspace === id;
           return (
@@ -32,24 +32,25 @@ export function Sidebar() {
               key={id}
               type="button"
               onClick={() => setWorkspace(id)}
-              whileTap={{ scale: 0.985 }}
-              className="nav-item relative flex items-center gap-2.5 px-2.5 py-2 text-left"
+              whileTap={{ scale: 0.98 }}
+              className="nav-item relative flex items-center gap-2.5 px-3 py-2.5 text-left"
               style={{
-                background: active ? 'rgba(139,92,246,0.1)' : undefined,
-                borderColor: active ? 'rgba(139,92,246,0.3)' : undefined,
-                color: active ? '#a78bfa' : 'var(--dim)',
+                background: active ? 'var(--accent-soft)' : undefined,
+                borderColor: active ? 'rgba(139,92,246,0.28)' : undefined,
+                color: active ? '#c4b5fd' : 'var(--dim)',
+                boxShadow: active ? '0 6px 22px -8px var(--glow)' : undefined,
               }}
               aria-current={active ? 'page' : undefined}
             >
               {active && (
                 <motion.span
                   layoutId="nav-active"
-                  className="absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full"
-                  style={{ background: '#a78bfa' }}
+                  className="absolute left-0.5 top-1/2 h-5 w-[2.5px] -translate-y-1/2 rounded-full"
+                  style={{ background: 'var(--accent)', boxShadow: '0 0 10px var(--accent)' }}
                 />
               )}
               <Icon size={16} strokeWidth={1.75} />
-              <span className="text-[12.5px] font-medium tracking-tight" style={{ color: active ? '#f4d8a0' : 'var(--text)' }}>
+              <span className="text-[12.5px] font-medium tracking-tight" style={{ color: active ? '#ffffff' : 'var(--text)' }}>
                 {label}
               </span>
             </motion.button>

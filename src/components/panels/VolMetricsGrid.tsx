@@ -34,10 +34,10 @@ function Cell({ label, value, tag, tagColor, valueColor }: {
   label: string; value: React.ReactNode; tag: string; tagColor: string; valueColor?: string;
 }) {
   return (
-    <div className="flex flex-col justify-center gap-0.5 bg-[color:var(--panel)] px-3 py-2">
+    <div className="metric-cell flex min-h-0 flex-col justify-center gap-0.5 overflow-hidden bg-[color:var(--panel)]">
       <div className="eyebrow text-[8px]">{label}</div>
-      <span className="mono text-[17px] font-bold leading-none" style={{ color: valueColor ?? 'var(--text)' }}>{value}</span>
-      {tag && <div className="text-[9.5px] font-medium" style={{ color: tagColor }}>{tag}</div>}
+      <span className="metric-val mono font-bold leading-none" style={{ color: valueColor ?? 'var(--text)' }}>{value}</span>
+      {tag && <div className="metric-tag text-[9.5px] font-medium" style={{ color: tagColor }}>{tag}</div>}
     </div>
   );
 }

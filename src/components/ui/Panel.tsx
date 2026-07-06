@@ -28,7 +28,7 @@ export function Panel({
       className={`glass glass-hover relative flex min-h-0 flex-col overflow-hidden ${className}`}
     >
       {title && (
-        <header className="flex items-center justify-between border-b border-[color:var(--line-soft)] px-3.5 py-2">
+        <header className="panel-head flex items-center justify-between border-b border-[color:var(--line-soft)]">
           <div className="flex items-center gap-2">
             <span
               className="h-1.5 w-1.5 rounded-full"
@@ -39,7 +39,7 @@ export function Panel({
           {badge}
         </header>
       )}
-      <div className="min-h-0 flex-1 px-3.5 py-3">{children}</div>
+      <div className="panel-body min-h-0 flex-1">{children}</div>
     </motion.section>
   );
 }
