@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Box, Grid3x3, LayoutGrid } from 'lucide-react';
 import { useTerminal } from '../store';
 import { VolMarketProvider, useVolMarket } from '../lib/vol/market';
@@ -90,26 +90,29 @@ function Inner() {
         {/* camera presets + data/axis modes — instant institutional viewpoints */}
         <div className="absolute right-3 top-[38px] z-10 flex items-center gap-1">
           {view !== 'HEATMAP' && PRESETS.map((p) => (
-            <button key={p.id} onClick={() => fly(p.id)}
-              className="rounded-[4px] border px-1.5 py-0.5 text-[8px] font-semibold tracking-wide transition"
+            <motion.button key={p.id} onClick={() => fly(p.id)}
+              whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} transition={{ duration: 0.2, ease: 'easeInOut' }}
+              className="rounded-[4px] border px-1.5 py-0.5 text-[8px] font-semibold tracking-wide transition-colors"
               style={{ borderColor: preset === p.id ? 'rgba(139,92,246,0.4)' : 'var(--line)', color: preset === p.id ? 'var(--gold)' : 'var(--dim)' }}>
               {p.label}
-            </button>
+            </motion.button>
           ))}
           <span className="mx-0.5 h-3 w-px bg-[color:var(--line)]" />
           {canToggleMode && (['LIVE', 'MODEL'] as SurfMode[]).map((m) => (
-            <button key={m} onClick={() => setSurfMode(m)}
+            <motion.button key={m} onClick={() => setSurfMode(m)}
+              whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} transition={{ duration: 0.2, ease: 'easeInOut' }}
               title={m === 'LIVE' ? 'Raw chain surface — real market irregularities' : 'Smooth parametric fit'}
-              className="rounded-[4px] border px-1.5 py-0.5 text-[8px] font-semibold tracking-wide transition"
+              className="rounded-[4px] border px-1.5 py-0.5 text-[8px] font-semibold tracking-wide transition-colors"
               style={{ borderColor: effMode === m ? 'rgba(90,167,255,0.4)' : 'var(--line)', color: effMode === m ? 'var(--info)' : 'var(--dim)' }}>
               {m}
-            </button>
+            </motion.button>
           ))}
-          <button onClick={() => setXMode(xMode === 'STRIKE' ? 'MONEYNESS' : 'STRIKE')}
+          <motion.button onClick={() => setXMode(xMode === 'STRIKE' ? 'MONEYNESS' : 'STRIKE')}
+            whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} transition={{ duration: 0.2, ease: 'easeInOut' }}
             title="Toggle strike / log-moneyness axis"
-            className="rounded-[4px] border border-[color:var(--line)] px-1.5 py-0.5 text-[8px] font-semibold tracking-wide text-[color:var(--dim)] transition hover:text-[color:var(--text)]">
+            className="rounded-[4px] border border-[color:var(--line)] px-1.5 py-0.5 text-[8px] font-semibold tracking-wide text-[color:var(--dim)] transition-colors hover:text-[color:var(--text)]">
             {xMode === 'STRIKE' ? 'K' : 'ln(K/S)'}
-          </button>
+          </motion.button>
         </div>
 
         <div className="absolute left-3.5 top-10 z-10 flex items-center gap-1.5">
@@ -131,16 +134,30 @@ function Inner() {
 
         <IVLegend />
 
-        {snap == null
-          ? <MarketUnavailable />
-          : view === 'HEATMAP'
-            ? <IVHeatmap surfOverride={surfOverride} xMode={xMode} />
-            : (
-              <Suspense fallback={<CanvasFallback />}>
-                <VolSurface wireframe={view === 'WIREFRAME'} preset={preset} presetNonce={presetNonce}
-                  surfOverride={surfOverride} xMode={xMode} />
-              </Suspense>
-            )}
+        {/* Content crossfade — fade out old view, fade in new. Keyed only on
+            surface-vs-heatmap so toggling Wireframe never remounts the R3F
+            canvas (it's a prop on the same VolSurface, not a new view). */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={snap == null ? 'na' : view === 'HEATMAP' ? 'heatmap' : 'surface'}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.24, ease: 'easeInOut' }}
+            className="absolute inset-0"
+          >
+            {snap == null
+              ? <MarketUnavailable />
+              : view === 'HEATMAP'
+                ? <IVHeatmap surfOverride={surfOverride} xMode={xMode} />
+                : (
+                  <Suspense fallback={<CanvasFallback />}>
+                    <VolSurface wireframe={view === 'WIREFRAME'} preset={preset} presetNonce={presetNonce}
+                      surfOverride={surfOverride} xMode={xMode} />
+                  </Suspense>
+                )}
+          </motion.div>
+        </AnimatePresence>
         </div>
       </section>
 
@@ -271,10 +288,25 @@ function Empty() {
 
 function Seg({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
   return (
-    <button onClick={onClick} className="flex items-center gap-1 rounded-[6px] border px-1.5 py-1 text-[9px] font-medium transition"
-      style={{ borderColor: active ? 'rgba(139,92,246,0.35)' : 'var(--line)', background: active ? 'rgba(139,92,246,0.12)' : 'transparent', color: active ? 'var(--gold)' : 'var(--dim)' }}>
-      {icon}{label}
-    </button>
+    <motion.button
+      onClick={onClick}
+      whileHover={{ scale: active ? 1 : 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      transition={{ duration: 0.2, ease: 'easeInOut' }}
+      className="relative flex items-center gap-1 rounded-[6px] border px-1.5 py-1 text-[9px] font-medium"
+      style={{ borderColor: active ? 'rgba(139,92,246,0.35)' : 'var(--line)', color: active ? 'var(--gold)' : 'var(--dim)' }}
+      aria-pressed={active}
+    >
+      {active && (
+        <motion.span
+          layoutId="surf-seg"
+          className="absolute inset-0 rounded-[6px]"
+          style={{ background: 'rgba(139,92,246,0.12)' }}
+          transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+        />
+      )}
+      <span className="relative z-10 flex items-center gap-1">{icon}{label}</span>
+    </motion.button>
   );
 }
 

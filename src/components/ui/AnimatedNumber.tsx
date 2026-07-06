@@ -18,6 +18,7 @@ export function AnimatedNumber({
   const fromRef = useRef(value);
   const startRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
+  const elRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const from = fromRef.current;
@@ -33,6 +34,24 @@ export function AnimatedNumber({
       setDisplay(to);
       fromRef.current = to;
       return;
+    }
+    // Brief directional flash on a genuine tick (green up / red down). Uses the
+    // Web Animations API so it re-fires cleanly every update and is skipped when
+    // the user prefers reduced motion. Purely presentational — no value change.
+    const el = elRef.current;
+    const reduced = typeof matchMedia !== 'undefined' &&
+      matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (el && !reduced) {
+      const up = to > from;
+      const tint = up ? '#35d6a0' : '#f4677e';
+      const end = getComputedStyle(el).color;
+      el.animate(
+        [
+          { color: tint, textShadow: `0 0 10px ${up ? 'rgba(53,214,160,0.5)' : 'rgba(244,103,126,0.5)'}` },
+          { color: end, textShadow: '0 0 0 rgba(0,0,0,0)' },
+        ],
+        { duration: 550, easing: 'ease-out' },
+      );
     }
     startRef.current = null;
     const step = (ts: number) => {
@@ -52,5 +71,5 @@ export function AnimatedNumber({
     };
   }, [value, duration]);
 
-  return <span className={`mono ${className}`}>{format(display)}</span>;
+  return <span ref={elRef} className={`mono ${className}`}>{format(display)}</span>;
 }

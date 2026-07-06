@@ -191,7 +191,7 @@ function Plot({ width, height, strikes, iv, yday, avg5, spot, frontDte, richness
         const kind = strikes[hi] < spot ? 'P' : 'C';
         const delta = bs(spot, strikes[hi], Math.max(frontDte, 0.5) / 365, iv[hi] / 100, 0.066, kind).delta;
         return (
-          <div className="pointer-events-none absolute z-10 rounded-[5px] border border-[color:var(--line)] bg-black/85 px-2 py-1.5"
+          <div className="fade-in pointer-events-none absolute z-10 rounded-[5px] border border-[color:var(--line)] bg-black/85 px-2 py-1.5"
             style={{ left: Math.min(width - 130, Math.max(0, pad.l + xs(strikes[hi]) + 8)), top: 6 }}>
             <div className="mono text-[9px] font-bold text-[color:var(--text)]">
               {strikes[hi].toLocaleString('en-IN')}

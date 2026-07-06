@@ -12,10 +12,12 @@ interface TerminalState {
   conn: ConnState;
   error: BackendError | null;
   workspace: WorkspaceId;
+  sidebarCollapsed: boolean;
   setSnap: (s: Snapshot) => void;
   setConn: (c: ConnState) => void;
   setError: (e: BackendError | null) => void;
   setWorkspace: (w: WorkspaceId) => void;
+  toggleSidebar: () => void;
 }
 
 export const useTerminal = create<TerminalState>((set, get) => ({
@@ -26,10 +28,20 @@ export const useTerminal = create<TerminalState>((set, get) => ({
   // Navigation lives in the store so switching workspaces never tears down
   // the single live WebSocket connection (data + feed are global).
   workspace: 'volatility',
+  // Sidebar collapse is view-only chrome (no effect on data/feed); persisted so
+  // a trader's preferred rail width survives reloads.
+  sidebarCollapsed:
+    (typeof localStorage !== 'undefined' && localStorage.getItem('volara.sidebar') === 'collapsed'),
   setSnap: (s) => set({ snap: s, prev: get().snap }),
   setConn: (c) => set({ conn: c }),
   setError: (e) => set({ error: e }),
   setWorkspace: (w) => set({ workspace: w }),
+  toggleSidebar: () =>
+    set((st) => {
+      const next = !st.sidebarCollapsed;
+      try { localStorage.setItem('volara.sidebar', next ? 'collapsed' : 'expanded'); } catch { /* ignore */ }
+      return { sidebarCollapsed: next };
+    }),
 }));
 
 // Strategy: populate with demo data IMMEDIATELY so the terminal is never blank,

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { motion } from 'motion/react';
 import { Bell, Settings as SettingsIcon, User, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useTerminal } from '../store';
 import { AnimatedNumber } from './ui/AnimatedNumber';
@@ -93,7 +94,7 @@ export function TopBar() {
       <div className="flex items-center gap-2.5">
         <div className="flex items-center gap-2 rounded-full border border-[color:var(--line)] px-3 py-1.5"
           style={{ background: 'rgba(255,255,255,0.03)' }}>
-          <span className="h-1.5 w-1.5 rounded-full pulse" style={{ background: dot, boxShadow: `0 0 8px ${dot}` }} />
+          <span className="h-1.5 w-1.5 rounded-full breathe" style={{ color: dot, background: dot }} />
           <span className="text-[10px] font-bold tracking-widest" style={{ color: dot }}>{connLabel}</span>
           <span className="mono ml-1 text-[10px] text-[color:var(--dim)]">{clock}</span>
         </div>
@@ -121,12 +122,15 @@ function Quote({ label, value, chg, valueNode }: { label: string; value: string;
 
 function IconBtn({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
   return (
-    <button
+    <motion.button
       onClick={onClick}
-      className="nav-item flex h-9 w-9 items-center justify-center rounded-full text-[color:var(--dim)] transition-transform hover:scale-[1.06] hover:text-[color:var(--text)]"
+      whileHover={{ scale: 1.08, y: -1, boxShadow: '0 6px 18px -8px var(--glow)' }}
+      whileTap={{ scale: 0.94 }}
+      transition={{ duration: 0.2, ease: 'easeInOut' }}
+      className="nav-item flex h-9 w-9 items-center justify-center rounded-full text-[color:var(--dim)] hover:text-[color:var(--text)]"
       style={{ background: 'rgba(255,255,255,0.02)' }}
     >
       {children}
-    </button>
+    </motion.button>
   );
 }

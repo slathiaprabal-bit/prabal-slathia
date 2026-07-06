@@ -49,6 +49,7 @@
 
   /* Layout */
   --sidebar-w: 216px;
+  --sidebar-cw: 66px;  /* collapsed rail — icons only */
   --radius: 22px;      /* floating cards */
   --radius-lg: 26px;   /* shell rails */
   --radius-sm: 12px;   /* cells, buttons, inputs */
@@ -66,6 +67,10 @@ body,
 #root {
   height: 100%;
   margin: 0;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -247,11 +252,33 @@ body {
   .metric-cell .eyebrow { white-space: nowrap; letter-spacing: 0.1em; }
 }
 
-/* ───────────────────────── Sidebar ───────────────────────── */
+/* ───────────────────────── Sidebar ─────────────────────────
+   Collapsible rail. Width is the one deliberately-animated layout property
+   (300ms ease-in-out): as it shrinks, main (flex-1) reflows to match and the
+   labels fade+collapse to zero width so icons re-centre without a jump.       */
 .sidebar {
   width: var(--sidebar-w);
   min-width: var(--sidebar-w);
   z-index: 30;
+  overflow: hidden;
+  transition: width 0.3s ease-in-out, min-width 0.3s ease-in-out;
+}
+.sidebar[data-collapsed='true'] {
+  width: var(--sidebar-cw);
+  min-width: var(--sidebar-cw);
+}
+
+/* Labels: fade + collapse to zero width so the icon re-centres fluidly. */
+.nav-label {
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 140px;
+  opacity: 1;
+  transition: max-width 0.3s ease-in-out, opacity 0.2s ease-in-out;
+}
+.sidebar[data-collapsed='true'] .nav-label {
+  max-width: 0;
+  opacity: 0;
 }
 
 .nav-item {
@@ -261,9 +288,14 @@ body {
   transition: color 0.2s var(--ease), background 0.2s var(--ease),
     border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
+/* Hover: soft background fade + gentle lift + icon glow (never aggressive). */
 .nav-item:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.045);
   color: var(--text);
+  box-shadow: 0 6px 18px -12px rgba(0, 0, 0, 0.7);
+}
+.nav-item:hover svg {
+  filter: drop-shadow(0 0 5px rgba(139, 92, 246, 0.45));
 }
 
 /* ───────────────────────── Background ─────────────────────────
@@ -335,6 +367,29 @@ body {
   animation: pulseSoft 2.4s ease-in-out infinite;
 }
 
+/* LIVE dot — a calm breathing glow (opacity + scale), never a hard flash. */
+@keyframes breathe {
+  0%, 100% { opacity: 0.55; transform: scale(0.9); box-shadow: 0 0 0 0 rgba(53, 214, 160, 0); }
+  50% { opacity: 1; transform: scale(1.05); box-shadow: 0 0 8px 1px currentColor; }
+}
+.breathe {
+  color: inherit;
+  animation: breathe 2.6s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* Metric value flash — a brief tint when a live number ticks up / down. */
+@keyframes flashPos {
+  0% { color: var(--pos); text-shadow: 0 0 10px rgba(53, 214, 160, 0.55); }
+  100% { color: inherit; text-shadow: none; }
+}
+@keyframes flashNeg {
+  0% { color: var(--neg); text-shadow: 0 0 10px rgba(244, 103, 126, 0.55); }
+  100% { color: inherit; text-shadow: none; }
+}
+.flash-pos { animation: flashPos 0.6s ease-out; }
+.flash-neg { animation: flashNeg 0.6s ease-out; }
+
 @keyframes shimmer {
   0% { background-position: -480px 0; }
   100% { background-position: 480px 0; }
@@ -349,4 +404,28 @@ body {
   background-size: 960px 100%;
   animation: shimmer 1.4s linear infinite;
   border-radius: var(--radius-sm);
+}
+
+/* Content fade-in — panels/loaders settle in without a hard pop. */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.fade-in {
+  animation: fadeIn 0.4s ease-out both;
+}
+
+/* ───────────────────────── Reduced motion ─────────────────────────
+   Respect the OS preference: collapse animations/transitions to near-instant
+   and drop smooth scroll, so motion-sensitive users get a static interface.
+   Framer Motion reads the same preference at runtime.                        */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
