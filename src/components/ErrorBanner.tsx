@@ -41,7 +41,7 @@ export function ErrorBanner() {
                 {error.error}
               </div>
               {error.origin && (
-                <div className="mono mt-1 text-[11px] text-[#f4b740] break-all">
+                <div className="mono mt-1 text-[11px] text-[#a78bfa] break-all">
                   ↳ {error.origin}
                 </div>
               )}

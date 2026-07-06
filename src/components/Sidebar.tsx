@@ -35,9 +35,9 @@ export function Sidebar() {
               whileTap={{ scale: 0.985 }}
               className="nav-item relative flex items-center gap-2.5 px-2.5 py-2 text-left"
               style={{
-                background: active ? 'rgba(244,183,64,0.07)' : undefined,
-                borderColor: active ? 'rgba(244,183,64,0.22)' : undefined,
-                color: active ? '#f4b740' : 'var(--dim)',
+                background: active ? 'rgba(139,92,246,0.1)' : undefined,
+                borderColor: active ? 'rgba(139,92,246,0.3)' : undefined,
+                color: active ? '#a78bfa' : 'var(--dim)',
               }}
               aria-current={active ? 'page' : undefined}
             >
@@ -45,7 +45,7 @@ export function Sidebar() {
                 <motion.span
                   layoutId="nav-active"
                   className="absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full"
-                  style={{ background: '#f4b740' }}
+                  style={{ background: '#a78bfa' }}
                 />
               )}
               <Icon size={16} strokeWidth={1.75} />

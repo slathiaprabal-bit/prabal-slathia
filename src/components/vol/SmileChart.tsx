@@ -142,7 +142,7 @@ function Plot({ width, height, strikes, iv, yday, avg5, spot, frontDte, richness
         <g transform={`translate(${pad.l},${pad.t})`}>
           {/* wing zones */}
           <rect x={0} y={0} width={Math.max(0, spotX)} height={h} fill="rgba(90,140,255,0.035)" />
-          <rect x={spotX} y={0} width={Math.max(0, w - spotX)} height={h} fill="rgba(244,183,64,0.03)" />
+          <rect x={spotX} y={0} width={Math.max(0, w - spotX)} height={h} fill="rgba(139,92,246,0.04)" />
           <text x={4} y={9} fontSize="7" fill="#5b616b" letterSpacing="0.1em">PUT WING</text>
           <text x={w - 4} y={9} fontSize="7" fill="#5b616b" letterSpacing="0.1em" textAnchor="end">CALL WING</text>
 

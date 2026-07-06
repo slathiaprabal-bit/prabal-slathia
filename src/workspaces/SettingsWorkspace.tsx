@@ -4,7 +4,7 @@ import { WORKSPACES } from './registry';
 
 const CONN_LABEL: Record<string, { text: string; color: string }> = {
   live: { text: 'LIVE · WebSocket streaming', color: '#27d17c' },
-  mock: { text: 'DEMO · simulated feed', color: '#f4b740' },
+  mock: { text: 'DEMO · simulated feed', color: '#a78bfa' },
   error: { text: 'ERROR · backend traceback', color: '#f04668' },
   connecting: { text: 'CONNECTING…', color: '#5aa9ff' },
 };

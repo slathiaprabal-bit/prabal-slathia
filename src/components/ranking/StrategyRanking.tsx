@@ -13,7 +13,7 @@ export function StrategyRanking({ items }: { items: RankedStrategy[] }) {
         const sc = s.score >= 75 ? 'var(--pos)' : s.score >= 55 ? 'var(--gold)' : 'var(--dim)';
         return (
           <motion.div key={s.key} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}
-            className="cell px-3 py-2" style={s.recommended ? { borderColor: 'rgba(244,183,64,0.35)' } : undefined}>
+            className="cell px-3 py-2" style={s.recommended ? { borderColor: 'rgba(139,92,246,0.4)' } : undefined}>
             <div className="flex items-center gap-2">
               <span className="mono w-4 shrink-0 text-[11px] font-bold text-[color:var(--dim)]">{i + 1}</span>
               <div className="min-w-0 flex-1">

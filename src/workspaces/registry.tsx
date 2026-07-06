@@ -33,7 +33,7 @@ export const WORKSPACES: WorkspaceDef[] = [
     label: 'Volatility Terminal',
     subtitle: '3-D surface · smile · term structure · regime',
     icon: Layers,
-    accent: '#f4b740',
+    accent: '#a78bfa',
     Component: VolatilityTerminal,
   },
   {
@@ -65,7 +65,7 @@ export const WORKSPACES: WorkspaceDef[] = [
     label: 'Market Breadth',
     subtitle: 'Positioning · PCR · support / resistance · GEX',
     icon: Activity,
-    accent: '#f4b740',
+    accent: '#a78bfa',
     Component: MarketBreadth,
   },
   {
@@ -97,7 +97,7 @@ export const WORKSPACES: WorkspaceDef[] = [
     label: 'Trade Journal',
     subtitle: 'Live decision · structure · entry / exit rules',
     icon: BookOpen,
-    accent: '#f4b740',
+    accent: '#a78bfa',
     Component: TradeJournal,
   },
   {

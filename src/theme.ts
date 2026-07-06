@@ -4,23 +4,23 @@ import type { RegimeState } from './types';
 // Matte-black surfaces, graphite panels, restrained semantic accents only.
 // No blue-glass. Colour appears solely where information matters.
 export const palette = {
-  bg0: '#000000',
-  bg1: '#050505',
-  bg2: '#080808',
-  bg3: '#0b0b0b',
-  panel: '#0c0d0f',
-  panelHi: '#101113',
-  border: 'rgba(255,255,255,0.07)',
-  text: '#e7e9ec',
-  dim: '#8a909a',
-  faint: '#4b515b',
-  // Semantic accents
-  pos: '#27d17c',   // emerald — positive
-  lime: '#9be83a',  // lime — strong positive
-  gold: '#f4b740',  // amber/gold — active / warning / brand
-  neg: '#f04668',   // crimson — negative
-  white: '#e7e9ec',
-  grey: '#8a909a',
+  bg0: '#0a0a0b',
+  bg1: '#101014',
+  bg2: '#151519',
+  bg3: '#191920',
+  panel: '#111117',
+  panelHi: '#1a1a21',
+  border: 'rgba(255,255,255,0.075)',
+  text: '#f2f3f7',
+  dim: '#9ba0ad',
+  faint: '#575c67',
+  // Semantic accents — soft, non-neon (mirrors index.css tokens)
+  pos: '#34d399',   // soft green — positive
+  lime: '#86e08a',  // strong positive
+  gold: '#a78bfa',  // brand/active — light violet (legacy token name)
+  neg: '#f4657c',   // soft red — negative
+  white: '#f2f3f7',
+  grey: '#9ba0ad',
 };
 
 export interface RegimeTheme {

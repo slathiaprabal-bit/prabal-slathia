@@ -273,7 +273,7 @@ function HoverGuides({ surf, lo, hi, hover }: { surf: Surface; lo: number; hi: n
   if (iv == null) return null;
   const x = xAt(hover.i, nx), z = zAt(hover.j, ny);
   const y = Math.max(0, Math.min(1.03, (iv - lo) / (hi - lo || 1))) * HMAX;
-  const c = '#f4b740';
+  const c = '#a78bfa';
   return (
     <group>
       <mesh position={[x, y, z]}>
@@ -305,7 +305,7 @@ function SelectionSlices({ surf, lo, hi }: { surf: Surface; lo: number; hi: numb
     [xAt(strikeIdx, nx), yOf(surf.iv[j][strikeIdx]), zAt(j, ny)]);
   return (
     <group>
-      <Line points={expiryPts} color="#f4b740" lineWidth={2.2} transparent opacity={0.95} />
+      <Line points={expiryPts} color="#a78bfa" lineWidth={2.2} transparent opacity={0.95} />
       <Line points={strikePts} color="#5aa7ff" lineWidth={2.2} transparent opacity={0.95} />
     </group>
   );

@@ -92,7 +92,7 @@ function Inner() {
           {view !== 'HEATMAP' && PRESETS.map((p) => (
             <button key={p.id} onClick={() => fly(p.id)}
               className="rounded-[4px] border px-1.5 py-0.5 text-[8px] font-semibold tracking-wide transition"
-              style={{ borderColor: preset === p.id ? 'rgba(244,183,64,0.35)' : 'var(--line)', color: preset === p.id ? 'var(--gold)' : 'var(--dim)' }}>
+              style={{ borderColor: preset === p.id ? 'rgba(139,92,246,0.4)' : 'var(--line)', color: preset === p.id ? 'var(--gold)' : 'var(--dim)' }}>
               {p.label}
             </button>
           ))}
@@ -272,7 +272,7 @@ function Empty() {
 function Seg({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
   return (
     <button onClick={onClick} className="flex items-center gap-1 rounded-[6px] border px-1.5 py-1 text-[9px] font-medium transition"
-      style={{ borderColor: active ? 'rgba(244,183,64,0.3)' : 'var(--line)', background: active ? 'rgba(244,183,64,0.1)' : 'transparent', color: active ? 'var(--gold)' : 'var(--dim)' }}>
+      style={{ borderColor: active ? 'rgba(139,92,246,0.35)' : 'var(--line)', background: active ? 'rgba(139,92,246,0.12)' : 'transparent', color: active ? 'var(--gold)' : 'var(--dim)' }}>
       {icon}{label}
     </button>
   );
