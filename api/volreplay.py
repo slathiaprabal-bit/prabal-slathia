@@ -9,12 +9,15 @@ is back-filled.
 """
 from __future__ import annotations
 
+import os
 import threading
 import time
 from datetime import datetime, timedelta, timezone
 
 _IST = timezone(timedelta(hours=5, minutes=30))
-_SAMPLE_EVERY_S = 300      # one sample / 5 min ≈ 75 per session
+# One sample / 5 min ≈ 75 per session. Override with QT_REPLAY_INTERVAL_S
+# (e.g. for a faster demo/soak of the pipeline).
+_SAMPLE_EVERY_S = int(os.getenv("QT_REPLAY_INTERVAL_S", "300"))
 _MAX_SAMPLES = 120
 
 _lock = threading.Lock()

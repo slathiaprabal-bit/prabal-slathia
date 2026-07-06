@@ -8,8 +8,11 @@ outputs for the React/Three.js front end — no trading logic lives here.
 
 from __future__ import annotations
 
+import logging
 import math
 from datetime import datetime, timezone
+
+_log = logging.getLogger("volara.serializers")
 
 import numpy as np
 
@@ -277,22 +280,6 @@ def build_snapshot(cfg: Config, mc: dict | None = None,
         vol_history = record_and_derive(cfg.primary, spot, strikes, dtes, grid)
     except Exception:
         vol_history = None
-    # Intraday replay sample — the Session Replay scrubber re-renders the vol
-    # panels at any recorded moment of the current session.
-    try:
-        record_replay(cfg.primary, {
-            "spot": round(spot, 1),
-            "vixChg": reg.vix_chg,
-            "vol": {
-                "vix": vs.vix, "ivRank": round(ivr, 1), "ivPctile": vs.iv_pctile,
-                "hv20": vs.hv.get(20, float("nan")), "vrp": vs.iv_minus_hv,
-                "emExpiry": vs.em_expiry, "pInside1": vs.p_inside_1sigma,
-            },
-            "smile": smile, "term": term, "surface": surface,
-        })
-    except Exception:
-        pass
-
     # --- Greeks (presentation layer) -------------------------------------
     probe.mark("position_greeks", spot=spot, vix=vs.vix, t=cfg.dte / 365.0,
                lot=lot, rate=cfg.risk_free_rate,
@@ -327,6 +314,24 @@ def build_snapshot(cfg: Config, mc: dict | None = None,
                confidence=reg.confidence, p_inside1=vs.p_inside_1sigma,
                credit=sig.credit, lot=lot)
     ivr = vs.iv_rank if vs.iv_rank == vs.iv_rank else 50.0
+
+    # Intraday replay sample — recorded AFTER ivr/vs/reg/smile/term/surface are
+    # all in scope (this ran too early before, raising UnboundLocalError every
+    # tick and leaving the buffer empty). A failure is logged, never swallowed.
+    try:
+        record_replay(cfg.primary, {
+            "spot": round(spot, 1),
+            "vixChg": reg.vix_chg,
+            "vol": {
+                "vix": vs.vix, "ivRank": round(ivr, 1), "ivPctile": vs.iv_pctile,
+                "hv20": vs.hv.get(20, float("nan")), "vrp": vs.iv_minus_hv,
+                "emExpiry": vs.em_expiry, "pInside1": vs.p_inside_1sigma,
+            },
+            "smile": smile, "term": term, "surface": surface,
+        })
+    except Exception:
+        _log.exception("session-replay record failed (instrument=%s)", cfg.primary)
+
     premium_rich = max(0.0, min(100.0, 0.6 * ivr + 0.4 * max(0.0, vs.iv_minus_hv) * 10))
     edge = max(0.0, min(100.0, 0.5 * reg.confidence + 0.3 * ivr +
                         20 * vs.p_inside_1sigma))

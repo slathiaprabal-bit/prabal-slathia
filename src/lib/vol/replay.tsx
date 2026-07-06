@@ -79,10 +79,15 @@ export function VolReplayProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<ReplayState>(() => {
     if (!snap) return { moments: [], cycle: { COMPRESSION: 0, NEUTRAL: 0, EXPANSION: 0 }, activeTs, setActiveTs };
-    const moments = samples.map((s) => {
-      const { phase, score } = classify(snap, s);
-      return { sample: s, phase, score };
-    });
+    // Classify per sample defensively — a single malformed sample must not blank
+    // the whole panel (a throwing .map inside useMemo would).
+    const moments: ReplayMoment[] = [];
+    for (const s of samples) {
+      try {
+        const { phase, score } = classify(snap, s);
+        moments.push({ sample: s, phase, score });
+      } catch { /* skip an unclassifiable sample, keep the rest */ }
+    }
     const n = moments.length || 1;
     const cycle = {
       COMPRESSION: moments.filter((m) => m.phase === 'COMPRESSION').length / n,
