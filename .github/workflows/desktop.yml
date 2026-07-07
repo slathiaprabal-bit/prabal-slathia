@@ -1,9 +1,9 @@
-# VOLARA desktop build — produces the Windows installer + portable exe.
+# PS Terminal desktop build — produces the Windows installer + portable exe.
 #
 # Runs on: manual dispatch, or a version tag push (v3.0.0, v3.1.0, …).
-# Artifacts: "VOLARA Setup <version>.exe" (NSIS wizard) and
-#            "VOLARA <version> Portable.exe", uploaded to the run; tag builds
-#            also attach them to a draft GitHub Release for one-click publishing.
+# Artifacts: "PS Terminal Setup <version>.exe" (NSIS wizard) and
+#            "PS Terminal <version> Portable.exe", uploaded to the run; tag
+#            builds also attach them to a draft GitHub Release.
 #
 # The PyInstaller freeze MUST run on Windows to emit a Windows engine —
 # that is exactly what this runner provides.
@@ -74,15 +74,15 @@ jobs:
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: VOLARA-Setup
-          path: release/VOLARA Setup *.exe
+          name: PS-Terminal-Setup
+          path: release/PS Terminal Setup *.exe
           if-no-files-found: error
 
       - name: Upload portable
         uses: actions/upload-artifact@v4
         with:
-          name: VOLARA-Portable
-          path: release/VOLARA * Portable.exe
+          name: PS-Terminal-Portable
+          path: release/PS Terminal * Portable.exe
           if-no-files-found: error
 
       - name: Attach to draft release (tag builds)
@@ -91,5 +91,5 @@ jobs:
         with:
           draft: true
           files: |
-            release/VOLARA Setup *.exe
-            release/VOLARA * Portable.exe
+            release/PS Terminal Setup *.exe
+            release/PS Terminal * Portable.exe

@@ -21,7 +21,7 @@ function installCrashHandlers(app, dialog) {
   process.on('uncaughtException', (err) => {
     log.error('[crash] uncaughtException:', err?.stack || err);
     try {
-      dialog.showErrorBox('VOLARA — Unexpected Error',
+      dialog.showErrorBox('PS Terminal — Unexpected Error',
         `An unexpected error occurred and was written to the log.\n\n${err?.message ?? err}`);
     } catch { /* dialog may be unavailable pre-ready */ }
   });

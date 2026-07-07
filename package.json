@@ -1,8 +1,8 @@
 {
-  "name": "volara",
-  "productName": "VOLARA",
-  "description": "VOLARA Quant Terminal — institutional volatility & risk terminal",
-  "author": "VOLARA",
+  "name": "ps-terminal",
+  "productName": "PS Terminal",
+  "description": "Quantitative Trading Platform",
+  "author": "Prabal Slathia",
   "private": true,
   "version": "3.0.0",
   "type": "module",

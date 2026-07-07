@@ -2,6 +2,8 @@ import { Panel } from '../components/ui/Panel';
 import { useTerminal } from '../store';
 import { WORKSPACES } from './registry';
 
+declare const __APP_VERSION__: string; // injected by vite from package.json
+
 const CONN_LABEL: Record<string, { text: string; color: string }> = {
   live: { text: 'LIVE · WebSocket streaming', color: '#27d17c' },
   mock: { text: 'DEMO · simulated feed', color: '#a78bfa' },
@@ -17,7 +19,7 @@ export function SettingsWorkspace() {
   const wsUrl = `ws://${location.hostname}:8000/ws/stream`;
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-12 grid-rows-6 gap-2">
+    <div className="relative grid h-full min-h-0 grid-cols-12 grid-rows-6 gap-2">
       <Panel title="Connection" accent="#5aa9ff" className="col-start-1 col-span-6 row-start-1 row-span-3" delay={0.04}>
         <div className="flex h-full flex-col justify-center gap-2.5">
           <Row label="STATUS">
@@ -73,6 +75,11 @@ export function SettingsWorkspace() {
           ))}
         </div>
       </Panel>
+
+      {/* Brand footer */}
+      <div className="pointer-events-none absolute bottom-1.5 right-3 z-10 text-[9.5px] tracking-wide text-[color:var(--faint)]">
+        Developed by Prabal Slathia · v{__APP_VERSION__}
+      </div>
     </div>
   );
 }

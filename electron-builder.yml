@@ -1,26 +1,27 @@
-# electron-builder — VOLARA desktop packaging (Phase C).
-# Icons / installer artwork land in Phase D; this config is target + layout.
+# electron-builder — PS Terminal desktop packaging.
 #
 # Windows build (on Windows or the desktop.yml CI runner):
 #   pyinstaller --clean --noconfirm desktop/engine.spec
 #   npm run build:desktop
 #   npx electron-builder --win
-# Artifacts in release/: "VOLARA Setup <version>.exe" (NSIS wizard) and
-# "VOLARA <version> Portable.exe".
+# Artifacts in release/: "PS Terminal Setup <version>.exe" (NSIS wizard) and
+# "PS Terminal <version> Portable.exe".
 
-appId: com.volara.terminal
-productName: VOLARA
-copyright: © 2026 VOLARA
+appId: com.prabalslathia.psterminal
+productName: PS Terminal
+copyright: © Prabal Slathia
 
 directories:
   output: release
-  buildResources: desktop/build-res   # icons & installer art (Phase D)
+  buildResources: desktop/build-res   # icon.ico / icon.svg / png set
 
-# The app payload: the desktop shell + the built renderer. Renderer deps are
-# devDependencies (vite inlines them), so node_modules ships only electron-log.
+# The app payload: the desktop shell + the built renderer + brand icons.
+# Renderer deps are devDependencies (vite inlines them), so node_modules
+# ships only electron-log.
 files:
   - electron/**/*
   - dist-desktop/**/*
+  - desktop/build-res/png/icon-256.png
   - package.json
   - "!**/*.map"
 
@@ -32,15 +33,18 @@ extraResources:
 asar: true
 
 win:
+  icon: desktop/build-res/icon.ico
   target:
     - nsis
     - portable
-  artifactName: "VOLARA ${version} Portable.exe"
+  artifactName: "PS Terminal ${version} Portable.exe"
 
 nsis:
-  artifactName: "VOLARA Setup ${version}.exe"
-  shortcutName: VOLARA
-  uninstallDisplayName: VOLARA Quant Terminal
+  artifactName: "PS Terminal Setup ${version}.exe"
+  shortcutName: PS Terminal
+  uninstallDisplayName: PS Terminal — Quantitative Trading Systems
+  installerIcon: desktop/build-res/icon.ico
+  uninstallerIcon: desktop/build-res/icon.ico
   oneClick: false                        # professional wizard, not silent
   perMachine: false                      # per-user: no UAC, writable install dir
   allowToChangeInstallationDirectory: true
@@ -51,5 +55,6 @@ nsis:
 
 # Local smoke target only (CI builds Windows artifacts).
 linux:
+  icon: desktop/build-res/png/icon-512.png
   target:
     - dir

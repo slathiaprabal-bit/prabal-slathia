@@ -1,4 +1,4 @@
-# VOLARA Desktop (Electron)
+# PS Terminal Desktop (Electron)
 
 The desktop shell packages the untouched web terminal + Python market engine
 into a one-click application. All desktop concerns live in `electron/` — no
@@ -7,7 +7,7 @@ UI, engine, or API code is modified.
 ## Architecture
 
 ```
-VOLARA (Electron main)
+PS Terminal (Electron main)
  ├─ splash window      electron/splash/       staged boot status
  ├─ market engine      spawned child process  FastAPI/uvicorn on 127.0.0.1:8000
  │    dev:  python3 -m uvicorn api.server:app
@@ -52,9 +52,9 @@ npm run desktop:engine   # PyInstaller → dist/volara-engine/
 npm run desktop:dist     # renderer + electron-builder → release/
 ```
 
-Artifacts in `release/`: **VOLARA Setup <version>.exe** (NSIS wizard:
+Artifacts in `release/`: **PS Terminal Setup <version>.exe** (NSIS wizard:
 desktop + Start Menu shortcuts, uninstaller, per-user install) and
-**VOLARA <version> Portable.exe**.
+**PS Terminal <version> Portable.exe**.
 
 CI (`.github/workflows/desktop.yml`): runs the same pipeline on a Windows
 runner — freeze engine, smoke-test it (`/api/health` + `/api/snapshot`),

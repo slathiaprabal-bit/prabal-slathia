@@ -19,6 +19,9 @@ const { buildMenu } = require('./menu.cjs');
 const isDev = !app.isPackaged;
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const RENDERER_DIRS = [path.join(REPO_ROOT, 'dist-desktop'), path.join(REPO_ROOT, 'dist')];
+// PS Terminal brand icon (window/taskbar in dev + Linux; packaged Windows
+// builds take the exe icon from electron-builder; notifications everywhere).
+const ICON_PNG = path.join(REPO_ROOT, 'desktop', 'build-res', 'png', 'icon-256.png');
 
 let mainWin = null;
 let splashWin = null;
@@ -88,14 +91,16 @@ if (!app.requestSingleInstanceLock()) {
 function createSplash() {
   const win = new BrowserWindow({
     width: 460,
-    height: 340,
+    height: 380,
     frame: false,
     resizable: false,
     maximizable: false,
     show: true,
     center: true,
+    alwaysOnTop: true,          // stays above the dashboard during the crossfade
     backgroundColor: '#0a0a0b',
-    title: 'VOLARA',
+    title: 'PS Terminal',
+    icon: ICON_PNG,
     webPreferences: {
       preload: path.join(__dirname, '..', 'splash', 'splash-preload.cjs'),
       contextIsolation: true,
@@ -103,8 +108,27 @@ function createSplash() {
       sandbox: true,
     },
   });
-  win.loadFile(path.join(__dirname, '..', 'splash', 'splash.html'));
+  win.loadFile(path.join(__dirname, '..', 'splash', 'splash.html'), {
+    query: { v: app.getVersion() },
+  });
   return win;
+}
+
+/** Fade the splash out over the freshly shown dashboard, then close it. */
+function fadeOutSplash() {
+  if (!splashWin || splashWin.isDestroyed()) return;
+  const win = splashWin;
+  splashWin = null;
+  let opacity = 1;
+  const timer = setInterval(() => {
+    opacity -= 0.07;
+    if (opacity <= 0 || win.isDestroyed()) {
+      clearInterval(timer);
+      if (!win.isDestroyed()) win.close();
+    } else {
+      win.setOpacity(opacity);
+    }
+  }, 16); // ~60fps, ≈240ms total
 }
 
 function setStage(msg) {
@@ -146,7 +170,8 @@ function createMainWindow() {
     minHeight: winState.MIN.height,
     show: false,                     // no white flash — show when ready
     backgroundColor: '#0a0a0b',
-    title: 'VOLARA',
+    title: 'PS Terminal',
+    icon: ICON_PNG,
     autoHideMenuBar: true,
     titleBarStyle: 'hidden',
     titleBarOverlay: {
@@ -185,14 +210,21 @@ function createMainWindow() {
     cb(permission === 'notifications');
   });
 
-  wc.on('did-finish-load', () => { wc.insertCSS(DESKTOP_CSS); });
+  wc.on('did-finish-load', () => {
+    wc.insertCSS(DESKTOP_CSS);
+    // Desktop window/taskbar title — the shared web index.html keeps its own.
+    wc.executeJavaScript(`document.title = 'PS Terminal'`).catch(() => {});
+  });
 
   mainWin.once('ready-to-show', () => {
-    if (state.isMaximized) mainWin.maximize();
-    mainWin.show();
-    if (splashWin && !splashWin.isDestroyed()) splashWin.close();
-    splashWin = null;
-    if (isDev && process.env.VOLARA_DEVTOOLS === '1') wc.openDevTools({ mode: 'detach' });
+    setStage('Ready.');
+    setTimeout(() => {
+      if (!mainWin) return;
+      if (state.isMaximized) mainWin.maximize();
+      mainWin.show();
+      fadeOutSplash(); // splash is always-on-top: it fades over the dashboard
+      if (isDev && process.env.VOLARA_DEVTOOLS === '1') wc.openDevTools({ mode: 'detach' });
+    }, 420);
   });
 
   mainWin.on('closed', () => { mainWin = null; });
@@ -202,11 +234,13 @@ function createMainWindow() {
 
 // --------------------------------------------------------------------- boot
 async function boot() {
-  log.info(`[boot] VOLARA ${app.getVersion()} starting (packaged=${app.isPackaged})`);
-  buildMenu({ isDev, logsDir: path.join(app.getPath('userData'), 'logs') });
+  log.info(`[boot] PS Terminal ${app.getVersion()} starting (packaged=${app.isPackaged})`);
+  // Windows ties taskbar grouping + toast branding to this id (matches appId).
+  app.setAppUserModelId('com.prabalslathia.psterminal');
+  buildMenu({ isDev, logsDir: path.join(app.getPath('userData'), 'logs'), iconPng: ICON_PNG });
 
   splashWin = createSplash();
-  setStage('Initializing Market Engine…');
+  setStage('Initializing Market Engine...');
 
   const engineLog = path.join(app.getPath('userData'), 'logs', 'engine.log');
   fs.mkdirSync(path.dirname(engineLog), { recursive: true });
@@ -220,10 +254,10 @@ async function boot() {
   const result = await engine.start(opts, engineLog, (event) => {
     if (event === 'restarted') {
       log.warn('[engine] restarted after unexpected exit');
-      new Notification({ title: 'VOLARA', body: 'Market engine restarted — reconnecting…' }).show();
+      new Notification({ title: 'PS Terminal', body: 'Market engine restarted — reconnecting…', icon: ICON_PNG }).show();
     } else if (event === 'gave-up') {
       log.error('[engine] gave up restarting');
-      new Notification({ title: 'VOLARA', body: 'Market engine stopped. Running on demo data.' }).show();
+      new Notification({ title: 'PS Terminal', body: 'Market engine stopped. Running on demo data.', icon: ICON_PNG }).show();
     }
   });
 
@@ -236,7 +270,7 @@ async function boot() {
 
     const choice = dialog.showMessageBoxSync({
       type: 'error',
-      title: 'VOLARA — Market Engine',
+      title: 'PS Terminal — Market Engine',
       message: 'The market engine could not be started.',
       detail: `${detail}\n\nYou can continue in demo mode (no live market data) or quit.`,
       buttons: ['Continue in Demo Mode', 'Quit'],
@@ -247,11 +281,13 @@ async function boot() {
     if (choice === 1) { app.quit(); return; }
     log.warn('[boot] continuing in demo mode without engine');
   } else {
-    setStage('Connecting Market Data…');
+    setStage('Connecting Live Market Data...');
     await engine.waitFirstSnapshot(20_000);
+    setStage('Loading Volatility Models...');
+    await new Promise((r) => setTimeout(r, 500)); // stage is real but instant — let it read
   }
 
-  setStage('Loading Volatility Models…');
+  setStage('Preparing Dashboard...');
   createMainWindow();
 }
 
@@ -274,10 +310,10 @@ app.on('window-all-closed', () => {
 
 // ---------------------------------------------------------------------- IPC
 ipcMain.handle('app:info', () => ({
-  name: 'VOLARA',
+  name: 'PS Terminal',
   version: app.getVersion(),
   platform: process.platform,
 }));
 ipcMain.on('app:notify', (_e, { title, body }) => {
-  new Notification({ title, body }).show();
+  new Notification({ title, body, icon: ICON_PNG }).show();
 });

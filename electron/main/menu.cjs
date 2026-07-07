@@ -2,15 +2,36 @@
 // not drawn, but registering it keeps every accelerator (zoom, full screen,
 // reload, DevTools-in-dev, quit) active — the professional-terminal defaults.
 
-const { Menu, app, dialog, shell } = require('electron');
-const path = require('node:path');
+const { Menu, app, dialog, nativeImage, shell } = require('electron');
 
-function buildMenu({ isDev, logsDir }) {
+function showAbout(iconPng) {
+  dialog.showMessageBox({
+    type: 'none',
+    icon: iconPng ? nativeImage.createFromPath(iconPng) : undefined,
+    title: 'About PS Terminal',
+    message: 'PS Terminal',
+    detail: [
+      'Quantitative Trading Systems',
+      '',
+      `Version ${app.getVersion()}`,
+      '',
+      'Developed by Prabal Slathia',
+      '',
+      'Powered by Electron · Python · FastAPI · React · Three.js',
+      '',
+      `© ${new Date().getFullYear()} Prabal Slathia. All rights reserved.`,
+    ].join('\n'),
+    buttons: ['OK'],
+    noLink: true,
+  });
+}
+
+function buildMenu({ isDev, logsDir, iconPng }) {
   const template = [
     {
       label: 'File',
       submenu: [
-        { role: 'quit', label: 'Quit VOLARA' },
+        { role: 'quit', label: 'Quit PS Terminal' },
       ],
     },
     {
@@ -39,16 +60,8 @@ function buildMenu({ isDev, logsDir }) {
       label: 'Help',
       submenu: [
         {
-          label: 'About VOLARA',
-          click: () => {
-            dialog.showMessageBox({
-              type: 'info',
-              title: 'About VOLARA',
-              message: 'VOLARA Quant Terminal',
-              detail: `Version ${app.getVersion()}\nInstitutional volatility & risk terminal.`,
-              buttons: ['OK'],
-            });
-          },
+          label: 'About PS Terminal',
+          click: () => showAbout(iconPng),
         },
         {
           label: 'Open Logs Folder',
@@ -58,7 +71,6 @@ function buildMenu({ isDev, logsDir }) {
     },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
-  void path;
 }
 
-module.exports = { buildMenu };
+module.exports = { buildMenu, showAbout };
