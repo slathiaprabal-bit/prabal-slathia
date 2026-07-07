@@ -68,12 +68,14 @@ function isPortTaken() {
 }
 
 // ------------------------------------------------------------ spawn logic --
-function engineCommand({ isPackaged, resourcesPath, repoRoot }) {
+function engineCommand({ isPackaged, resourcesPath, repoRoot, dataCwd }) {
   if (isPackaged) {
     // PyInstaller onedir output shipped in resources/engine (Phase C).
+    // cwd is the per-user data dir so CWD-relative writes (qt_errors.log…)
+    // land somewhere writable — the install dir may be read-only.
     const exe = process.platform === 'win32' ? 'volara-engine.exe' : 'volara-engine';
     const bin = path.join(resourcesPath, 'engine', exe);
-    return { cmd: bin, args: [], cwd: path.dirname(bin) };
+    return { cmd: bin, args: [], cwd: dataCwd || path.dirname(bin) };
   }
   // Dev: run the backend from source with the local Python.
   const python = process.env.VOLARA_PYTHON ||

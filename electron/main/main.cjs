@@ -7,10 +7,9 @@
 // The renderer is the UNTOUCHED web build: all desktop concerns (engine
 // lifecycle, window chrome, state memory, logging, crash handling) live here.
 
-const { app, BrowserWindow, dialog, ipcMain, Notification, net, protocol, screen, session, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Notification, protocol, screen, session, shell } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
-const { pathToFileURL } = require('node:url');
 
 const { log, installCrashHandlers } = require('./logger.cjs');
 const winState = require('./window-state.cjs');
@@ -34,8 +33,16 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
 ]);
 
+const MIME = {
+  '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
+  '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon',
+  '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
+  '.map': 'application/json', '.wasm': 'application/wasm',
+};
+
 function registerAppProtocol(rendererDir) {
-  protocol.handle('app', (req) => {
+  protocol.handle('app', async (req) => {
     const url = new URL(req.url);
     let p = decodeURIComponent(url.pathname);
     if (p === '/' || p === '') p = '/index.html';
@@ -43,7 +50,16 @@ function registerAppProtocol(rendererDir) {
     if (!file.startsWith(path.normalize(rendererDir))) {
       return new Response('forbidden', { status: 403 }); // path-traversal guard
     }
-    return net.fetch(pathToFileURL(file).toString());
+    try {
+      // fs (asar-aware) rather than net.fetch: the packaged renderer lives
+      // inside app.asar, which the file protocol cannot always read.
+      const body = await fs.promises.readFile(file);
+      return new Response(body, {
+        headers: { 'content-type': MIME[path.extname(file).toLowerCase()] ?? 'application/octet-stream' },
+      });
+    } catch {
+      return new Response('not found', { status: 404 });
+    }
   });
 }
 
@@ -195,7 +211,12 @@ async function boot() {
   const engineLog = path.join(app.getPath('userData'), 'logs', 'engine.log');
   fs.mkdirSync(path.dirname(engineLog), { recursive: true });
 
-  const opts = { isPackaged: app.isPackaged, resourcesPath: process.resourcesPath, repoRoot: REPO_ROOT };
+  const opts = {
+    isPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    repoRoot: REPO_ROOT,
+    dataCwd: app.getPath('userData'),
+  };
   const result = await engine.start(opts, engineLog, (event) => {
     if (event === 'restarted') {
       log.warn('[engine] restarted after unexpected exit');

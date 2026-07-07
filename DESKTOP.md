@@ -40,4 +40,30 @@ npm run desktop:dev    # launch without rebuilding the renderer
 
 Requires local Python with `api/requirements.txt` +
 `quant_engine/requirements.txt` installed (dev only — the packaged app ships
-a frozen engine, Phase C).
+a frozen engine).
+
+## Build the Windows app (Phase C)
+
+Local (on Windows):
+
+```
+pip install -r desktop/engine-requirements.txt
+npm run desktop:engine   # PyInstaller → dist/volara-engine/
+npm run desktop:dist     # renderer + electron-builder → release/
+```
+
+Artifacts in `release/`: **VOLARA Setup <version>.exe** (NSIS wizard:
+desktop + Start Menu shortcuts, uninstaller, per-user install) and
+**VOLARA <version> Portable.exe**.
+
+CI (`.github/workflows/desktop.yml`): runs the same pipeline on a Windows
+runner — freeze engine, smoke-test it (`/api/health` + `/api/snapshot`),
+build renderer, package both targets, upload artifacts. Trigger manually
+(workflow_dispatch) or push a version tag (`v3.1.0` syncs the app version
+automatically and attaches the artifacts to a draft GitHub Release).
+
+Packaging layout: renderer + shell inside `app.asar`; the frozen engine at
+`resources/engine/` (spawned with cwd = the per-user data dir so runtime
+writes never touch the install dir). Version flows from one place —
+`package.json` (or the git tag in CI) — into the installer, About dialog
+and splash.

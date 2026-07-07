@@ -1,0 +1,55 @@
+# electron-builder — VOLARA desktop packaging (Phase C).
+# Icons / installer artwork land in Phase D; this config is target + layout.
+#
+# Windows build (on Windows or the desktop.yml CI runner):
+#   pyinstaller --clean --noconfirm desktop/engine.spec
+#   npm run build:desktop
+#   npx electron-builder --win
+# Artifacts in release/: "VOLARA Setup <version>.exe" (NSIS wizard) and
+# "VOLARA <version> Portable.exe".
+
+appId: com.volara.terminal
+productName: VOLARA
+copyright: © 2026 VOLARA
+
+directories:
+  output: release
+  buildResources: desktop/build-res   # icons & installer art (Phase D)
+
+# The app payload: the desktop shell + the built renderer. Renderer deps are
+# devDependencies (vite inlines them), so node_modules ships only electron-log.
+files:
+  - electron/**/*
+  - dist-desktop/**/*
+  - package.json
+  - "!**/*.map"
+
+# The PyInstaller-frozen market engine rides outside the asar so it can exec.
+extraResources:
+  - from: dist/volara-engine
+    to: engine
+
+asar: true
+
+win:
+  target:
+    - nsis
+    - portable
+  artifactName: "VOLARA ${version} Portable.exe"
+
+nsis:
+  artifactName: "VOLARA Setup ${version}.exe"
+  shortcutName: VOLARA
+  uninstallDisplayName: VOLARA Quant Terminal
+  oneClick: false                        # professional wizard, not silent
+  perMachine: false                      # per-user: no UAC, writable install dir
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  runAfterFinish: true
+  deleteAppDataOnUninstall: false        # keep window state/logs unless asked
+
+# Local smoke target only (CI builds Windows artifacts).
+linux:
+  target:
+    - dir
