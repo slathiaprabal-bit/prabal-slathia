@@ -6,39 +6,56 @@
 }
 
 /* ───────────────────────── Design tokens ─────────────────────────
-   Institutional ultra-dark terminal — matte black, graphite panels,
-   restrained semantic accents, minimal glow. Data is the focus.        */
+   Premium institutional terminal. Near-black layered surfaces lit from
+   above with a faint violet ambience; frosted-glass panels float over
+   the background. Purple is an ACCENT — used only on active/selected
+   states and glows. The interface stays primarily dark and warm-neutral. */
 :root {
-  /* Surfaces */
-  --bg0: #000000;
-  --bg1: #050505;
-  --bg2: #080808;
-  --bg3: #0b0b0b;
-  --panel: #0c0d0f;
-  --panel-hi: #101113;
-  --line: rgba(255, 255, 255, 0.07);
-  --line-soft: rgba(255, 255, 255, 0.04);
+  /* Surfaces — #0A0A0B → #101014 → #151519 */
+  --bg0: #0a0a0b;
+  --bg1: #0e0e12;
+  --bg2: #131318;
+  --bg3: #17171d;
+  --panel: rgba(19, 19, 26, 0.5);    /* frosted card base — transparent */
+  --panel-rail: rgba(16, 16, 22, 0.62); /* nav/top rails — a touch denser */
+  --panel-hi: #1b1b23;
 
-  /* Text */
-  --text: #e7e9ec;
-  --dim: #8a909a;
-  --faint: #4b515b;
+  /* Borders — nearly invisible; shadows & lighting define edges instead */
+  --line: rgba(255, 255, 255, 0.05);
+  --line-soft: rgba(255, 255, 255, 0.03);
 
-  /* Semantic accents — used sparingly */
-  --pos: #27d17c;   /* bullish / positive */
-  --lime: #9be83a;  /* strong positive */
-  --gold: #f4b740;  /* warning / active / brand */
-  --neg: #f04668;   /* bearish / negative */
-  --violet: #c79bff;/* secondary accent (percentile, macro) */
-  --info: #5aa9ff;  /* data blue — surfaces / charts only */
+  /* Text hierarchy */
+  --text: #f4f5f8;      /* values / primary */
+  --dim: #9096a3;       /* labels */
+  --faint: #565b66;     /* secondary / muted */
+
+  /* Purple accent — SPARSE (active, selected, glow, primary CTA) */
+  --accent: #8b5cf6;
+  --accent-deep: #7c5cff;
+  --accent-soft: rgba(139, 92, 246, 0.13);
+  --glow: rgba(124, 92, 255, 0.3);
+
+  /* Semantic accents — soft, non-neon.
+     --gold is the legacy pervasive "brand/highlight" token (~150 sites); it
+     now resolves to a soft champagne so the UI stays warm-neutral and purple
+     is reserved for true active states. --warn keeps real amber for warnings. */
+  --pos: #35d6a0;    /* soft green */
+  --lime: #86e08a;
+  --gold: #d9c48c;   /* champagne — subtle brand highlight (legacy token) */
+  --warn: #e2b458;   /* amber — reserved for warnings */
+  --neg: #f4677e;    /* soft red */
+  --violet: #c79bff; /* orchid — secondary data series */
+  --info: #63a4fb;   /* calm blue */
 
   /* Layout */
-  --sidebar-w: 212px;
-  --radius: 8px;
-  --radius-sm: 6px;
+  --sidebar-w: 216px;
+  --sidebar-cw: 66px;  /* collapsed rail — icons only */
+  --radius: 22px;      /* floating cards */
+  --radius-lg: 26px;   /* shell rails */
+  --radius-sm: 12px;   /* cells, buttons, inputs */
 
   /* Motion */
-  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease: cubic-bezier(0.22, 0.85, 0.26, 1);
 }
 
 * {
@@ -52,6 +69,10 @@ body,
   margin: 0;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background: var(--bg0);
   color: var(--text);
@@ -63,90 +84,243 @@ body {
   overflow: hidden;
 }
 
+::selection {
+  background: rgba(139, 92, 246, 0.32);
+}
+
+:focus-visible {
+  outline: 1.5px solid var(--glow);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
 .mono {
   font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
 }
 
-/* ───────────────────────── Machined panels ─────────────────────────
-   Sharp 1px borders, subtle radius, soft depth — no colour glow.        */
+/* ───────────────────────── Frosted glass cards ─────────────────────────
+   Transparent panel + strong backdrop blur = frosted glass floating above
+   the background. Edges are drawn by a faint top highlight and a layered
+   ambient shadow, not a hard border.                                       */
 .glass {
+  position: relative;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0)) ,
+    linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.055),
+      rgba(255, 255, 255, 0.012) 34%,
+      rgba(124, 92, 255, 0.022) 100%
+    ),
     var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  backdrop-filter: blur(22px) saturate(1.35);
+  -webkit-backdrop-filter: blur(22px) saturate(1.35);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.03) inset,
-    0 8px 28px rgba(0, 0, 0, 0.55);
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.008),
+    0 2px 6px rgba(0, 0, 0, 0.4),
+    0 20px 50px -12px rgba(0, 0, 0, 0.62);
+}
+/* soft top sheen — a barely-there glass reflection */
+.glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(120% 60% at 50% -20%, rgba(255, 255, 255, 0.05), transparent 60%);
+  opacity: 0.7;
 }
 
 .glass-hover {
-  transition: border-color 0.18s var(--ease), background 0.18s, box-shadow 0.18s;
+  transition:
+    border-color 0.3s var(--ease),
+    box-shadow 0.3s var(--ease),
+    transform 0.3s var(--ease);
 }
 .glass-hover:hover {
-  border-color: rgba(255, 255, 255, 0.13);
+  border-color: rgba(139, 92, 246, 0.24);
+  transform: translateY(-2px);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.04) inset,
-    0 10px 32px rgba(0, 0, 0, 0.6);
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 2px 8px rgba(0, 0, 0, 0.4),
+    0 28px 60px -14px rgba(0, 0, 0, 0.66),
+    0 6px 30px -8px var(--accent-soft);
 }
 
-/* Inset sub-cards inside panels */
+/* Rail heights — trimmed on short screens to give panels their room back. */
+.rail-top { height: 52px; }
+.rail-news { height: 36px; }
+@media (max-height: 800px) {
+  .rail-top { height: 44px; }
+  .rail-news { height: 28px; }
+}
+
+/* Shell rails (top bar, sidebar, ticker) — slightly denser glass, own float */
+.glass-rail {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.006)),
+    var(--panel-rail);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 44px -16px rgba(0, 0, 0, 0.6);
+}
+
+/* Signature violet gradient — the one emphasis fill (active nav / primary CTA) */
+.accent-grad {
+  background:
+    radial-gradient(120% 140% at 82% -20%, rgba(255, 255, 255, 0.16), transparent 52%),
+    linear-gradient(155deg, #8b5cf6 0%, #6d47e8 55%, #4c2fb8 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 8px 26px rgba(124, 92, 255, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Inset sub-cards — softer, borderless-feeling */
 .cell {
-  background: rgba(255, 255, 255, 0.018);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.008));
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-sm);
 }
 
+/* ───────────────────────── Typography hierarchy ───────────────────────── */
 .eyebrow {
   font-size: 9px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.19em;
   text-transform: uppercase;
-  color: var(--dim);
-  font-weight: 500;
+  color: var(--faint);
+  font-weight: 600;
 }
 
 .section-title {
   font-size: 11px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--text);
-  font-weight: 600;
+  color: #ffffff;
+  font-weight: 700;
 }
 
-/* ───────────────────────── Sidebar ───────────────────────── */
+/* ───────────────────────── Floating app shell ─────────────────────────
+   Outer margins + gaps make the whole app float above the background. The
+   inset shrinks on shorter/narrower viewports so dense terminals (1366×768)
+   never lose the room their panels need.                                    */
+.app-shell {
+  padding: 10px;
+  gap: 10px;
+}
+@media (max-height: 900px), (max-width: 1500px) {
+  .app-shell { padding: 7px; gap: 7px; }
+}
+@media (max-height: 800px) {
+  .app-shell { padding: 3px; gap: 5px; }
+}
+
+/* Panel padding — generous where there's room, compact on dense/short
+   screens so the terminal never overlaps at 1366×768.                 */
+.panel-head { padding: 8px 14px; }
+.panel-body { padding: 12px 14px; }
+@media (max-height: 900px), (max-width: 1500px) {
+  .panel-head { padding: 6px 12px; }
+  .panel-body { padding: 9px 12px; }
+}
+@media (max-height: 800px) {
+  .panel-head { padding: 4px 10px; }
+  .panel-body { padding: 6px 10px; }
+}
+
+/* Volatility Metrics cells — roomy where there's height, compacted on short
+   viewports (1366×768) so the 4-row grid never overflows into an overlap.   */
+.metric-cell { padding: 8px 12px; }
+.metric-val { font-size: 17px; }
+@media (max-height: 900px) {
+  .metric-cell { padding: 5px 12px; }
+  .metric-val { font-size: 15px; }
+}
+@media (max-height: 800px) {
+  .metric-cell { padding: 2px 11px; gap: 0; }
+  .metric-val { font-size: 13.5px; }
+  .metric-tag { font-size: 9px; }
+  /* keep labels to a single line so rows don't grow a second line and overlap */
+  .metric-cell .eyebrow { white-space: nowrap; letter-spacing: 0.1em; }
+}
+
+/* ───────────────────────── Sidebar ─────────────────────────
+   Collapsible rail. Width is the one deliberately-animated layout property
+   (300ms ease-in-out): as it shrinks, main (flex-1) reflows to match and the
+   labels fade+collapse to zero width so icons re-centre without a jump.       */
 .sidebar {
   width: var(--sidebar-w);
   min-width: var(--sidebar-w);
-  background: var(--bg1);
-  border-right: 1px solid var(--line);
   z-index: 30;
+  overflow: hidden;
+  transition: width 0.3s ease-in-out, min-width 0.3s ease-in-out;
+}
+.sidebar[data-collapsed='true'] {
+  width: var(--sidebar-cw);
+  min-width: var(--sidebar-cw);
+}
+
+/* Labels: fade + collapse to zero width so the icon re-centres fluidly. */
+.nav-label {
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 140px;
+  opacity: 1;
+  transition: max-width 0.3s ease-in-out, opacity 0.2s ease-in-out;
+}
+.sidebar[data-collapsed='true'] .nav-label {
+  max-width: 0;
+  opacity: 0;
 }
 
 .nav-item {
   cursor: pointer;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
-  transition: color 0.16s, background 0.16s, border-color 0.16s;
+  transition: color 0.2s var(--ease), background 0.2s var(--ease),
+    border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
+/* Hover: soft background fade + gentle lift + icon glow (never aggressive). */
 .nav-item:hover {
-  background: rgba(255, 255, 255, 0.035);
+  background: rgba(255, 255, 255, 0.045);
   color: var(--text);
+  box-shadow: 0 6px 18px -12px rgba(0, 0, 0, 0.7);
+}
+.nav-item:hover svg {
+  filter: drop-shadow(0 0 5px rgba(139, 92, 246, 0.45));
 }
 
 /* ───────────────────────── Background ─────────────────────────
-   Near-black with a barely-there top vignette — no coloured tint.       */
+   A lit desk: overhead glow, faint violet/blue undertones, and an
+   outer vignette that frames the workspace.                          */
 .grid-bg::before {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
+  z-index: 0;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.014) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.014) 1px, transparent 1px);
-  background-size: 44px 44px;
-  mask-image: radial-gradient(140% 90% at 50% -10%, black 20%, transparent 70%);
+    linear-gradient(rgba(255, 255, 255, 0.011) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.011) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: radial-gradient(150% 90% at 50% -10%, black 18%, transparent 68%);
+}
+/* outer vignette — frames the floating app */
+.grid-bg::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  box-shadow: inset 0 0 220px 40px rgba(0, 0, 0, 0.55);
 }
 
 /* ───────────────────────── News ticker ───────────────────────── */
@@ -170,21 +344,51 @@ body {
   height: 5px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(139, 92, 246, 0.26);
   border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5);
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.28) transparent;
+}
 
 /* ───────────────────────── Animations ───────────────────────── */
 @keyframes pulseSoft {
-  0%, 100% { opacity: 0.55; }
+  0%, 100% { opacity: 0.5; }
   50% { opacity: 1; }
 }
 .pulse {
   animation: pulseSoft 2.4s ease-in-out infinite;
 }
+
+/* LIVE dot — a calm breathing glow (opacity + scale), never a hard flash. */
+@keyframes breathe {
+  0%, 100% { opacity: 0.55; transform: scale(0.9); box-shadow: 0 0 0 0 rgba(53, 214, 160, 0); }
+  50% { opacity: 1; transform: scale(1.05); box-shadow: 0 0 8px 1px currentColor; }
+}
+.breathe {
+  color: inherit;
+  animation: breathe 2.6s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* Metric value flash — a brief tint when a live number ticks up / down. */
+@keyframes flashPos {
+  0% { color: var(--pos); text-shadow: 0 0 10px rgba(53, 214, 160, 0.55); }
+  100% { color: inherit; text-shadow: none; }
+}
+@keyframes flashNeg {
+  0% { color: var(--neg); text-shadow: 0 0 10px rgba(244, 103, 126, 0.55); }
+  100% { color: inherit; text-shadow: none; }
+}
+.flash-pos { animation: flashPos 0.6s ease-out; }
+.flash-neg { animation: flashNeg 0.6s ease-out; }
 
 @keyframes shimmer {
   0% { background-position: -480px 0; }
@@ -199,5 +403,29 @@ body {
   );
   background-size: 960px 100%;
   animation: shimmer 1.4s linear infinite;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
+}
+
+/* Content fade-in — panels/loaders settle in without a hard pop. */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.fade-in {
+  animation: fadeIn 0.4s ease-out both;
+}
+
+/* ───────────────────────── Reduced motion ─────────────────────────
+   Respect the OS preference: collapse animations/transitions to near-instant
+   and drop smooth scroll, so motion-sensitive users get a static interface.
+   Framer Motion reads the same preference at runtime.                        */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

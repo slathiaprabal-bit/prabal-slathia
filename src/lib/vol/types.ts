@@ -9,6 +9,10 @@ export type VolTrend = 'RISING' | 'STABLE' | 'FALLING';
 export type PremiumRichness = 'CHEAP' | 'FAIR' | 'RICH';
 export type VegaBias = 'LONG_VEGA' | 'SHORT_VEGA' | 'NEUTRAL_VEGA';
 
+// The actionable read: what a vol trader should DO with the current state.
+// WAIT = the model sees conflicting signals or low conviction — stand aside.
+export type VolAction = 'BUY_VOL' | 'SELL_VOL' | 'NEUTRAL' | 'WAIT';
+
 export interface VolInputs {
   atmIv: number;     // ATM implied volatility %
   vix: number;       // India VIX
@@ -22,6 +26,14 @@ export interface VolInputs {
   termSlope: number; // back − front ATM IV (contango > 0, backwardation < 0)
   skew: number;      // call-wing IV − put-wing IV (downside skew < 0)
   pInside1: number;  // probability inside 1σ range (0..1)
+}
+
+// One line of the institutional interpretation grid: dimension → verdict.
+export interface InterpretationBlock {
+  label: string;   // PREMIUM / SKEW / REGIME / FORWARD CURVE
+  value: string;   // the 10-second verdict, e.g. "Cheap"
+  detail: string;  // the supporting number, e.g. "VRP −3.2 · IV below RV"
+  tone: 'pos' | 'neg' | 'gold' | 'info' | 'dim';
 }
 
 export interface VolDriver {
@@ -41,9 +53,13 @@ export interface VolState {
   expansionProb: number;     // 0..100
   compressionProb: number;   // 0..100
   vegaBias: VegaBias;
-  confidence: number;        // 0..100
+  confidence: number;        // 0..100 — displayed as "Model Confidence"
+  action: VolAction;         // market stance derived from the full state
+  actionDetail: string;      // one-line rationale for the stance
+  persistence: string;       // expected regime persistence, e.g. "3–6 sessions"
   drivers: VolDriver[];      // sorted, strongest first
-  reasoning: string[];
+  reasoning: string[];       // legacy short bullets (downstream consumers)
+  interpretation: InterpretationBlock[]; // research-style read, one block per dimension
 
   // passthrough essentials for downstream engines
   atmIv: number;

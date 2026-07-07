@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- PS Terminal — interlinked P+S drawn as one continuous line.
+       Official palette: #67B8FF (blue, top-right) → #455EBC (purple, bottom-left). -->
+  <defs>
+    <!-- One shared gradient field (userSpaceOnUse) so the P and S sample
+         identical colors where they overlap — the joins disappear and the
+         mark reads as a single continuous line. -->
+    <linearGradient id="ps" gradientUnits="userSpaceOnUse" x1="440" y1="30" x2="150" y2="430">
+      <stop offset="0" stop-color="#67B8FF"/>
+      <stop offset="0.4" stop-color="#5F82E4"/>
+      <stop offset="1" stop-color="#455EBC"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#ps)" stroke-width="44" stroke-linecap="butt" stroke-linejoin="round">
+    <!-- P: full-height stem, bowl closing at ~45% height -->
+    <path d="M 138 444 L 138 72 L 282 72 C 368 72 400 118 400 160 C 400 202 368 246 282 246 L 158 246"/>
+    <!-- S: top terminal buried in the bowl's stroke so the line reads as
+         continuous — the S grows out of the P, upper loop inside the bowl -->
+    <path d="M 394 204 C 388 180 358 166 322 166 C 278 166 252 192 252 226 C 252 262 286 278 322 288 C 364 300 396 320 396 358 C 396 402 360 428 318 428 C 276 428 248 408 244 376"/>
+  </g>
+</svg>

@@ -13,12 +13,23 @@ from __future__ import annotations
 
 import json
 import math
+import threading
 import warnings
 from pathlib import Path
 from typing import Tuple
 
 import numpy as np
 import pandas as pd
+
+# yfinance is NOT thread-safe: it shares a session / tz-cache / parsing state
+# across calls. The FastAPI server downloads from two threads concurrently (the
+# per-tick build_snapshot thread for NIFTY/VIX, and the secondary-index
+# refresher thread for BankNifty/Sensex/FinNifty). Without serialisation those
+# concurrent yf.download() calls race and return each other's frames, which
+# showed up as a rotation (banknifty<-vix, sensex<-banknifty, finnifty<-sensex).
+# This lock serialises every yfinance download so a call always returns its own
+# symbol's data.
+_YF_LOCK = threading.Lock()
 
 from .config import Config
 
@@ -36,10 +47,11 @@ def _fetch_live(config: Config) -> pd.DataFrame | None:
     sym = config.primary_instrument.yahoo_symbol
     try:
         period = f"{max(config.history_days + 60, 120)}d"
-        px = yf.download(sym, period=period, interval="1d",
-                         progress=False, auto_adjust=False)
-        vix = yf.download(config.vix_symbol, period=period, interval="1d",
-                          progress=False, auto_adjust=False)
+        with _YF_LOCK:
+            px = yf.download(sym, period=period, interval="1d",
+                             progress=False, auto_adjust=False)
+            vix = yf.download(config.vix_symbol, period=period, interval="1d",
+                              progress=False, auto_adjust=False)
     except Exception as exc:  # network / proxy / parse failure
         warnings.warn(f"[data] live download failed for {sym}: {exc}")
         return None
@@ -47,22 +59,34 @@ def _fetch_live(config: Config) -> pd.DataFrame | None:
     if px is None or px.empty:
         return None
 
-    # yfinance may return a MultiIndex column frame for a single ticker.
+    # yfinance may return a MultiIndex column frame for a single ticker; flatten
+    # AND de-duplicate so each OHLC field selects a single 1-D Series (a live
+    # 'Close'/'Adj Close' collision otherwise yields a 2-D block whose ravel()
+    # doubles its length -> "All arrays must be of the same length").
     px = _flatten(px)
-    df = pd.DataFrame({
-        "Date": pd.to_datetime(px.index).tz_localize(None),
-        "Open": px["Open"].to_numpy(dtype=float).ravel(),
-        "High": px["High"].to_numpy(dtype=float).ravel(),
-        "Low": px["Low"].to_numpy(dtype=float).ravel(),
-        "Close": px["Close"].to_numpy(dtype=float).ravel(),
-    }).reset_index(drop=True)
+    needed = ["Open", "High", "Low", "Close"]
+    missing = [c for c in needed if c not in px.columns]
+    if missing:
+        warnings.warn(f"[data] live frame for {sym} missing OHLC columns {missing}")
+        return None
+
+    # Build from the same frame so every column shares px's row index and is
+    # therefore guaranteed equal-length and row-aligned — no parallel ravel().
+    df = px[needed].apply(pd.to_numeric, errors="coerce")
+    df.insert(0, "Date", pd.to_datetime(px.index).tz_localize(None))
+    df = df.reset_index(drop=True)
 
     if vix is not None and not vix.empty:
         vix = _flatten(vix)
-        vser = pd.Series(vix["Close"].to_numpy(dtype=float).ravel(),
-                         index=pd.to_datetime(vix.index).tz_localize(None))
-        df["VIX"] = df["Date"].map(vser).to_numpy()
-        df["VIX"] = df["VIX"].ffill().bfill()
+        if "Close" in vix.columns:
+            vser = pd.Series(
+                pd.to_numeric(vix["Close"], errors="coerce").to_numpy(),
+                index=pd.to_datetime(vix.index).tz_localize(None),
+            )
+            df["VIX"] = df["Date"].map(vser).to_numpy()
+            df["VIX"] = df["VIX"].ffill().bfill()
+        else:
+            df["VIX"] = _vix_from_realised(df["Close"])
     else:
         df["VIX"] = _vix_from_realised(df["Close"])
 
@@ -74,6 +98,10 @@ def _flatten(df: pd.DataFrame) -> pd.DataFrame:
     if isinstance(df.columns, pd.MultiIndex):
         df = df.copy()
         df.columns = df.columns.get_level_values(0)
+    # Collapse any duplicate field columns (e.g. a 'Close'/'Adj Close' collision
+    # after flattening) so selecting a field returns a single 1-D Series.
+    if df.columns.duplicated().any():
+        df = df.loc[:, ~df.columns.duplicated()]
     return df
 
 
@@ -209,8 +237,9 @@ def _fetch_secondary_live() -> dict | None:
     out: dict[str, dict] = {}
     for key, sym in _SECONDARY_SYMBOLS.items():
         try:
-            px = yf.download(sym, period="5d", interval="1d",
-                             progress=False, auto_adjust=False)
+            with _YF_LOCK:
+                px = yf.download(sym, period="5d", interval="1d",
+                                 progress=False, auto_adjust=False)
             if px is None or px.empty:
                 continue
             px = _flatten(px)
@@ -229,13 +258,20 @@ def _fetch_secondary_live() -> dict | None:
     return out
 
 
+# Last-good quotes per symbol, kept across calls so a transient single-symbol
+# fetch failure never blanks an index that was previously live.
+_SECONDARY_LAST: dict = {}
+
+
 def get_secondary_indices(config: Config) -> dict:
     """Live quotes for the secondary index strip.
 
-    Mirrors ``get_market_data``'s live -> cache fallback. Returns
+    Mirrors ``get_market_data``'s live -> cache fallback, and merges each
+    freshly-fetched symbol over the last-good values: if one of the three
+    downloads fails on a given cycle, that index keeps its previous quote
+    instead of flickering to None. Returns
     ``{key: {"value": float|None, "chg": float|None}}`` for every key in
-    ``_SECONDARY_SYMBOLS``; missing indices carry None so the frontend can
-    render a placeholder rather than a stale hardcoded number.
+    ``_SECONDARY_SYMBOLS``.
     """
     data: dict | None = None
     if config.use_live:
@@ -243,20 +279,25 @@ def get_secondary_indices(config: Config) -> dict:
 
     cache = config.data_dir / "secondary.json"
     if data:
+        # Merge only the symbols that resolved this cycle over the last-good set.
+        _SECONDARY_LAST.update(data)
         try:
             cache.parent.mkdir(parents=True, exist_ok=True)
-            cache.write_text(json.dumps(data))
+            cache.write_text(json.dumps(_SECONDARY_LAST))
         except Exception:
             pass
-    else:
+    elif not _SECONDARY_LAST:
+        # Nothing fetched live yet this process — seed from the on-disk cache.
         try:
             if cache.exists():
-                data = json.loads(cache.read_text())
+                _SECONDARY_LAST.update(json.loads(cache.read_text()))
         except Exception:
-            data = None
+            pass
 
-    data = data or {}
-    return {k: data.get(k, {"value": None, "chg": None})
+    # Build one complete, self-contained snapshot (copied inner dicts so the
+    # published object never aliases _SECONDARY_LAST). The caller swaps this in
+    # with a single assignment, so a reader never sees a half-updated strip.
+    return {k: dict(_SECONDARY_LAST.get(k, {"value": None, "chg": None}))
             for k in _SECONDARY_SYMBOLS}
 
 

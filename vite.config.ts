@@ -5,10 +5,17 @@ import {defineConfig, loadEnv} from 'vite';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
+  // Desktop (Electron) build: relative asset paths so the bundle loads over
+  // file://, and a separate outDir so the web `dist/` stays untouched.
+  const desktop = mode === 'desktop';
   return {
+    base: desktop ? './' : '/',
+    build: desktop ? {outDir: 'dist-desktop'} : undefined,
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+      // Single-source app version (package.json → UI footer, About, installer).
+      __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '3.0.0'),
     },
     resolve: {
       alias: {

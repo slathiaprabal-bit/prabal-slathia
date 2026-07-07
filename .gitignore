@@ -1,13 +1,23 @@
 node_modules/
 build/
 dist/
+dist-desktop/
+release/
 coverage/
 .DS_Store
 *.log
 .env*
 !.env.example
+# desktop build config (no secrets — localhost engine URLs only)
+!.env.desktop
 
 # Python
 __pycache__/
 *.pyc
 .venv/
+
+# Runtime macro/event caches (machine-local provenance state, never committed)
+quant_engine/data/official_cache.json
+quant_engine/data/secondary.json
+quant_engine/data/events_cache.json
+quant_engine/data/vol_history.json

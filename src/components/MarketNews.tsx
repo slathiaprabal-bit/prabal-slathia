@@ -14,8 +14,9 @@ const tone = (t?: string) => (t === 'pos' ? 'var(--pos)' : t === 'neg' ? 'var(--
 export function MarketNews() {
   const seq = [...ITEMS, ...ITEMS]; // duplicate for seamless loop
   return (
-    <footer className="flex h-8 shrink-0 items-center gap-3 border-t border-[color:var(--line)] bg-[color:var(--bg1)] pl-3">
-      <span className="shrink-0 rounded-[4px] bg-[color:var(--gold)]/12 px-2 py-0.5 text-[9px] font-bold tracking-widest text-[color:var(--gold)]">
+    <footer className="glass-rail rail-news flex shrink-0 items-center gap-3 overflow-hidden pl-3.5">
+      <span className="shrink-0 rounded-full px-2.5 py-0.5 text-[9px] font-bold tracking-widest text-[color:var(--accent)]"
+        style={{ background: 'var(--accent-soft)' }}>
         MARKET NEWS
       </span>
       <div className="ticker-mask relative min-w-0 flex-1 overflow-hidden">

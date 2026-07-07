@@ -1,5 +1,6 @@
 import type {
-  VolInputs, VolState, VolRegime, VolTrend, PremiumRichness, VegaBias, VolDriver,
+  VolInputs, VolState, VolRegime, VolTrend, PremiumRichness, VegaBias, VolAction, VolDriver,
+  InterpretationBlock,
 } from './types';
 import { clamp, round } from './types';
 
@@ -12,7 +13,7 @@ function drivers(i: VolInputs): VolDriver[] {
     { key: 'ivpctile', label: 'IV Percentile', weight: 0.18, contribution: clamp((i.ivPctile - 50) / 50, -1, 1),
       detail: `IV Percentile ${i.ivPctile.toFixed(0)}` },
     { key: 'vix', label: 'VIX Level', weight: 0.22, contribution: clamp(((i.vix - 8) / 22) * 2 - 1, -1, 1),
-      detail: `India VIX ${i.vix.toFixed(2)}` },
+      detail: `Vol index ${i.vix.toFixed(2)}` },
     { key: 'vrp', label: 'Variance Risk Premium', weight: 0.14, contribution: clamp(i.vrp / 8, -1, 1),
       detail: `VRP ${i.vrp >= 0 ? '+' : ''}${i.vrp.toFixed(1)}` },
     { key: 'term', label: 'Term Structure', weight: 0.10, contribution: clamp(-i.termSlope / 5, -1, 1),
@@ -68,6 +69,46 @@ function vegaBias(richness: PremiumRichness, regime: VolRegime, expansionProb: n
   return 'NEUTRAL_VEGA';
 }
 
+// The actionable signal. Traders act on a direction (buy/sell vol), stand
+// aside on conflict (WAIT), or run delta-driven books when vol has no edge
+// (NEUTRAL). Confidence gates conviction; regime extremes gate short vol.
+function classifyAction(
+  bias: VegaBias, richness: PremiumRichness, regime: VolRegime, trend: VolTrend,
+  expansionProb: number, compressionProb: number, confidence: number,
+): { action: VolAction; detail: string } {
+  const edge = Math.abs(expansionProb - compressionProb);
+  if (confidence < 55) {
+    return { action: 'WAIT', detail: `Model confidence ${confidence.toFixed(0)}% — drivers disagree; stand aside until the picture clears.` };
+  }
+  if (bias === 'SHORT_VEGA' && trend === 'RISING') {
+    return { action: 'WAIT', detail: 'Premium is rich but vol is still rising — selling into a rising tape is fighting momentum. Wait for the trend to stall.' };
+  }
+  if (bias === 'SHORT_VEGA' && (regime === 'EXTREME')) {
+    return { action: 'WAIT', detail: 'Extreme regime — premium is rich but tail risk dominates; short vol only with defined risk once the regime steps down.' };
+  }
+  if (bias === 'SHORT_VEGA') {
+    return { action: 'SELL_VOL', detail: `Rich premium with compression favoured (${compressionProb.toFixed(0)}% vs ${expansionProb.toFixed(0)}%) — harvest vega/theta with defined risk.` };
+  }
+  if (bias === 'LONG_VEGA' && trend === 'FALLING' && regime !== 'VERY_LOW') {
+    return { action: 'WAIT', detail: 'Vol looks cheap but is still bleeding — buying a falling IV pays negative carry. Wait for stabilisation or a catalyst.' };
+  }
+  if (bias === 'LONG_VEGA') {
+    return { action: 'BUY_VOL', detail: `Cheap premium with expansion favoured (${expansionProb.toFixed(0)}% vs ${compressionProb.toFixed(0)}%) — own convexity while it is under-priced.` };
+  }
+  // Explicit conflicts that net out to a neutral vega bias are still not
+  // tradeable — rich premium in a rising tape / cheap premium in a bleed.
+  if (richness === 'RICH' && trend === 'RISING') {
+    return { action: 'WAIT', detail: 'Premium is rich but IV is still being marked up — the sell signal and the tape disagree. Wait for vol to stall before harvesting.' };
+  }
+  if (richness === 'CHEAP' && trend === 'FALLING' && regime !== 'VERY_LOW') {
+    return { action: 'WAIT', detail: 'Premium is cheap but still cheapening — negative carry with no catalyst. Wait for a base in IV.' };
+  }
+  if (edge < 10) {
+    return { action: 'NEUTRAL', detail: 'No vega edge — premium fair and transition odds balanced. Trade direction or theta, not vol.' };
+  }
+  return { action: 'NEUTRAL', detail: 'Signals mixed but not conflicting — no conviction position in vol; keep books vega-flat.' };
+}
+
 // Single entry point — pure, fully testable.
 export function computeVolState(i: VolInputs): VolState {
   const ds = drivers(i);
@@ -91,10 +132,13 @@ export function computeVolState(i: VolInputs): VolState {
   const sorted = [...ds].sort((a, b) => Math.abs(b.weight * b.contribution) - Math.abs(a.weight * a.contribution));
 
   const reasoning = buildReasoning(i, { score, regime, trend, premiumRichness, expansionProb, compressionProb, bias });
+  const { action, detail: actionDetail } = classifyAction(bias, premiumRichness, regime, trend, expansionProb, compressionProb, confidence);
+  const interpretation = buildInterpretation(i, { regime, trend, premiumRichness, expansionProb, compressionProb });
+  const persistence = estimatePersistence(regime, trend);
 
   return {
     score, regime, trend, premiumRichness, expansionProb, compressionProb,
-    vegaBias: bias, confidence, drivers: sorted, reasoning,
+    vegaBias: bias, confidence, action, actionDetail, persistence, drivers: sorted, reasoning, interpretation,
     atmIv: i.atmIv, vix: i.vix, ivRank: i.ivRank, ivPctile: i.ivPctile, hv: i.hv,
     vrp: i.vrp, emExpiry: i.emExpiry, emPct: i.emPct, termSlope: i.termSlope,
     skew: i.skew, pInside1: i.pInside1,
@@ -106,7 +150,7 @@ function buildReasoning(
   s: { score: number; regime: VolRegime; trend: VolTrend; premiumRichness: PremiumRichness; expansionProb: number; compressionProb: number; bias: VegaBias },
 ): string[] {
   const out: string[] = [];
-  out.push(`Volatility score ${s.score.toFixed(0)}/100 — ${s.regime.replace('_', ' ').toLowerCase()} regime (IVR ${i.ivRank.toFixed(0)}, VIX ${i.vix.toFixed(1)}).`);
+  out.push(`Volatility score ${s.score.toFixed(0)}/100 — ${s.regime.replace('_', ' ').toLowerCase()} regime (IVR ${i.ivRank.toFixed(0)}, vol ${i.vix.toFixed(1)}).`);
   out.push(
     s.premiumRichness === 'RICH' ? `Premium rich — VRP ${i.vrp >= 0 ? '+' : ''}${i.vrp.toFixed(1)} with IV above realized.`
     : s.premiumRichness === 'CHEAP' ? `Premium cheap — VRP ${i.vrp >= 0 ? '+' : ''}${i.vrp.toFixed(1)}; options under-pricing realized risk.`
@@ -123,4 +167,51 @@ function buildReasoning(
   );
   if (i.skew < -1) out.push(`Downside skew (${i.skew.toFixed(1)}) — puts bid, hedging demand elevated.`);
   return out;
+}
+
+// Research-style interpretation grid — one verdict per dimension, readable in
+// ten seconds. The number that justifies each verdict rides in `detail`.
+function buildInterpretation(
+  i: VolInputs,
+  s: { regime: VolRegime; trend: VolTrend; premiumRichness: PremiumRichness; expansionProb: number; compressionProb: number },
+): InterpretationBlock[] {
+  const sgn = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}`;
+
+  const premium: InterpretationBlock = s.premiumRichness === 'RICH'
+    ? { label: 'PREMIUM', value: 'Rich', detail: `VRP ${sgn(i.vrp)} · IV over RV`, tone: 'pos' }
+    : s.premiumRichness === 'CHEAP'
+      ? { label: 'PREMIUM', value: 'Cheap', detail: `VRP ${sgn(i.vrp)} · IV below RV`, tone: 'info' }
+      : { label: 'PREMIUM', value: 'Fair', detail: `VRP ${sgn(i.vrp)} · IV ≈ RV`, tone: 'gold' };
+
+  const skew: InterpretationBlock = i.skew <= -1
+    ? { label: 'SKEW', value: 'Put Wing Elevated', detail: `${sgn(i.skew)} · hedging demand bid`, tone: 'neg' }
+    : i.skew >= 1
+      ? { label: 'SKEW', value: 'Call Wing Bid', detail: `${sgn(i.skew)} · upside chase`, tone: 'gold' }
+      : { label: 'SKEW', value: 'Balanced', detail: `${sgn(i.skew)} · no wing premium`, tone: 'dim' };
+
+  const regime: InterpretationBlock = s.compressionProb >= 57
+    ? { label: 'REGIME', value: 'Compression', detail: `${s.compressionProb.toFixed(0)}% odds · ${s.regime.replace('_', ' ').toLowerCase()} vol`, tone: 'pos' }
+    : s.expansionProb >= 57
+      ? { label: 'REGIME', value: 'Expansion', detail: `${s.expansionProb.toFixed(0)}% odds · trend ${s.trend.toLowerCase()}`, tone: 'neg' }
+      : { label: 'REGIME', value: 'Neutral', detail: `IVR ${i.ivRank.toFixed(0)} · trend ${s.trend.toLowerCase()}`, tone: 'gold' };
+
+  const curve: InterpretationBlock = i.termSlope >= 0.4
+    ? { label: 'FORWARD CURVE', value: i.termSlope >= 2 ? 'Steep Contango' : 'Healthy Contango', detail: `${sgn(i.termSlope)} back over front`, tone: 'pos' }
+    : i.termSlope <= -0.4
+      ? { label: 'FORWARD CURVE', value: 'Backwardation', detail: `${sgn(i.termSlope)} · front stress priced`, tone: 'neg' }
+      : { label: 'FORWARD CURVE', value: 'Flat', detail: `${sgn(i.termSlope)} · no tenor edge`, tone: 'dim' };
+
+  return [premium, skew, regime, curve];
+}
+
+// Model estimate of how long the current vol regime tends to hold, from the
+// regime's mean-reversion band tightened when the trend is actively moving.
+function estimatePersistence(regime: VolRegime, trend: VolTrend): string {
+  const band: Record<VolRegime, [number, number]> = {
+    VERY_LOW: [8, 15], LOW: [6, 12], NORMAL: [5, 10],
+    ELEVATED: [3, 6], HIGH: [2, 4], EXTREME: [1, 2],
+  };
+  let [lo, hi] = band[regime];
+  if (trend !== 'STABLE') { hi = Math.max(lo, Math.round(hi * 0.6)); lo = Math.max(1, Math.round(lo * 0.6)); }
+  return lo === hi ? `~${lo} session${lo > 1 ? 's' : ''}` : `${lo}–${hi} sessions`;
 }

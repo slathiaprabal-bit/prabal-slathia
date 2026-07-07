@@ -1,0 +1,10 @@
+# Exact runtime surface of the frozen market engine (api.server + quant_engine).
+# Deliberately excludes streamlit (dashboard-only) and other dev tooling —
+# keep this list in sync with desktop/engine.spec.
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pandas>=2.0
+numpy>=1.24
+yfinance>=0.2.40
+requests>=2.28
+pyinstaller>=6.0

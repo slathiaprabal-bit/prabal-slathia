@@ -8,20 +8,25 @@ outputs for the React/Three.js front end — no trading logic lives here.
 
 from __future__ import annotations
 
+import logging
 import math
 from datetime import datetime, timezone
+
+_log = logging.getLogger("volara.serializers")
 
 import numpy as np
 
 from quant_engine.config import Config
 from quant_engine.report import build_decision
-from quant_engine.surface_dashboard import build_surface
+from quant_engine.surface_dashboard import build_surface, parametric_surface
 from quant_engine.positioning import build_synthetic_chain
 from quant_engine.regimes import MarketRegime
 
 from .greeks import position_greeks
 from .instrument import Probe
 from .strategy_engine import MarketConditions, rank_strategies
+from .volhistory import record_and_derive
+from .volreplay import record as record_replay
 
 
 # 12 engine regimes -> 6 UI states the spec asks for.
@@ -197,22 +202,24 @@ def _backtest(cfg: Config, every: int = 60) -> dict:
     return c["data"]
 
 
-# Secondary index strip (BankNifty / Sensex / FinNifty). Memoised + refreshed
-# every `every` ticks — quotes move slowly relative to the 2s stream and the
-# yfinance call is too slow to run every frame.
-_SEC_CACHE: dict = {"n": 0, "data": None}
+# Secondary index strip (BankNifty / Sensex / FinNifty). Kept warm by the
+# background refresher in server.py (`_start_secondary_refresher`) so the
+# per-tick snapshot read never blocks on a network call. `_secondary` only
+# reads this shared dict; it seeds it once synchronously as a safety net for
+# the very first snapshot before the refresher has run.
+_SEC_CACHE: dict = {"data": None}
 
 
-def _secondary(cfg: Config, every: int = 30) -> dict:
-    c = _SEC_CACHE
-    if c["data"] is None or c["n"] % every == 0:
-        try:
-            from quant_engine.data import get_secondary_indices
-            c["data"] = get_secondary_indices(cfg)
-        except Exception:
-            c["data"] = {}
-    c["n"] += 1
-    return c["data"]
+def _secondary(cfg: Config) -> dict:
+    # Read-only view of the strip kept warm by the background refresher in
+    # server.py, which is the SOLE producer. We deliberately do NOT fetch here:
+    # doing so made the snapshot builder a second concurrent producer that also
+    # mutated quant_engine._SECONDARY_LAST, racing the refresher. Until the
+    # refresher has published, return null placeholders (UI shows '—').
+    data = _SEC_CACHE["data"]
+    if data:
+        return data
+    return {k: {"value": None, "chg": None} for k in ("banknifty", "sensex", "finnifty")}
 
 
 def build_snapshot(cfg: Config, mc: dict | None = None,
@@ -247,6 +254,18 @@ def build_snapshot(cfg: Config, mc: dict | None = None,
         "iv": grid.round(2).tolist(),
         "live": not pos.synthetic,
     }
+    # The smooth fitted "Model" surface is always served alongside, so the
+    # terminal can toggle Live (irregular, real chain) vs Model (parametric fit).
+    try:
+        m_strikes, m_dtes, m_grid = parametric_surface(vs)
+        surface_model = {
+            "strikes": m_strikes.round(0).tolist(),
+            "expiries": m_dtes.round(0).tolist(),
+            "iv": m_grid.round(2).tolist(),
+            "live": False,
+        }
+    except Exception:
+        surface_model = None
     # Front-expiry smile + ATM term structure derived from the surface.
     probe.mark("surface.smile_term", grid_shape=list(grid.shape),
                iv_min=float(grid.min()), iv_max=float(grid.max()))
@@ -255,7 +274,12 @@ def build_snapshot(cfg: Config, mc: dict | None = None,
              "iv": grid[0].round(2).tolist()}
     term = {"dte": dtes.round(0).tolist(),
             "iv": grid[:, atm_i].round(2).tolist()}
-
+    # Real day-over-day IV memory (yesterday / 5-day smile, tenor curves,
+    # surface change). Never fabricated — empty until history accumulates.
+    try:
+        vol_history = record_and_derive(cfg.primary, spot, strikes, dtes, grid)
+    except Exception:
+        vol_history = None
     # --- Greeks (presentation layer) -------------------------------------
     probe.mark("position_greeks", spot=spot, vix=vs.vix, t=cfg.dte / 365.0,
                lot=lot, rate=cfg.risk_free_rate,
@@ -290,6 +314,24 @@ def build_snapshot(cfg: Config, mc: dict | None = None,
                confidence=reg.confidence, p_inside1=vs.p_inside_1sigma,
                credit=sig.credit, lot=lot)
     ivr = vs.iv_rank if vs.iv_rank == vs.iv_rank else 50.0
+
+    # Intraday replay sample — recorded AFTER ivr/vs/reg/smile/term/surface are
+    # all in scope (this ran too early before, raising UnboundLocalError every
+    # tick and leaving the buffer empty). A failure is logged, never swallowed.
+    try:
+        record_replay(cfg.primary, {
+            "spot": round(spot, 1),
+            "vixChg": reg.vix_chg,
+            "vol": {
+                "vix": vs.vix, "ivRank": round(ivr, 1), "ivPctile": vs.iv_pctile,
+                "hv20": vs.hv.get(20, float("nan")), "vrp": vs.iv_minus_hv,
+                "emExpiry": vs.em_expiry, "pInside1": vs.p_inside_1sigma,
+            },
+            "smile": smile, "term": term, "surface": surface,
+        })
+    except Exception:
+        _log.exception("session-replay record failed (instrument=%s)", cfg.primary)
+
     premium_rich = max(0.0, min(100.0, 0.6 * ivr + 0.4 * max(0.0, vs.iv_minus_hv) * 10))
     edge = max(0.0, min(100.0, 0.5 * reg.confidence + 0.3 * ivr +
                         20 * vs.p_inside_1sigma))
@@ -365,7 +407,8 @@ def build_snapshot(cfg: Config, mc: dict | None = None,
             "sigma2": [vs.sigma2_lo, vs.sigma2_hi],
             "pInside1": vs.p_inside_1sigma,
         },
-        "surface": surface, "smile": smile, "term": term,
+        "surface": surface, "surfaceModel": surface_model, "smile": smile, "term": term,
+        "volHistory": vol_history,
         "greeks": g.as_dict(),
         "chain": chain, "chainSynthetic": chain_syn,
         "positioning": {

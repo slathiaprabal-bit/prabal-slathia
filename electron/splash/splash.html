@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>PS Terminal</title>
+<style>
+  :root {
+    --bg: #0a0a0b; --text: #f4f5f8; --dim: #9096a3; --faint: #565b66;
+    --blue: #67B8FF; --purple: #455EBC;
+  }
+  * { box-sizing: border-box; margin: 0; user-select: none; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background:
+      radial-gradient(90% 65% at 50% -12%, rgba(103, 184, 255, 0.08), transparent 60%),
+      radial-gradient(80% 60% at 50% 115%, rgba(69, 94, 188, 0.12), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-app-region: drag;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .card { text-align: center; transition: opacity 0.3s ease; }
+  .logo {
+    width: 96px; height: 96px; margin: 0 auto 14px;
+    filter: drop-shadow(0 10px 34px rgba(88, 199, 255, 0.22));
+  }
+  h1 { font-size: 24px; font-weight: 800; letter-spacing: 0.02em; }
+  .sub { margin-top: 5px; font-size: 9px; letter-spacing: 0.38em; color: var(--dim); font-weight: 600; }
+  .bar {
+    margin: 26px auto 14px; width: 230px; height: 3px; border-radius: 3px;
+    background: rgba(255, 255, 255, 0.07); overflow: hidden; position: relative;
+  }
+  .bar::after {
+    content: ''; position: absolute; inset: 0; width: 40%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, transparent, var(--blue), var(--purple), transparent);
+    animation: sweep 1.4s ease-in-out infinite;
+  }
+  @keyframes sweep { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
+  #stage { font-size: 11.5px; color: var(--dim); min-height: 16px; transition: opacity 0.22s; }
+  .foot { margin-top: 22px; font-size: 9px; color: var(--faint); letter-spacing: 0.08em; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+        <defs>
+          <linearGradient id="ps" gradientUnits="userSpaceOnUse" x1="440" y1="30" x2="150" y2="430">
+            <stop offset="0" stop-color="#67B8FF"/>
+            <stop offset="0.4" stop-color="#5F82E4"/>
+            <stop offset="1" stop-color="#455EBC"/>
+          </linearGradient>
+        </defs>
+        <g fill="none" stroke="url(#ps)" stroke-width="44" stroke-linecap="butt" stroke-linejoin="round">
+          <path d="M 138 444 L 138 72 L 282 72 C 368 72 400 118 400 160 C 400 202 368 246 282 246 L 158 246"/>
+          <path d="M 394 204 C 388 180 358 166 322 166 C 278 166 252 192 252 226 C 252 262 286 278 322 288 C 364 300 396 320 396 358 C 396 402 360 428 318 428 C 276 428 248 408 244 376"/>
+        </g>
+      </svg>
+    </div>
+    <h1>PS Terminal</h1>
+    <div class="sub">QUANTITATIVE TRADING SYSTEMS</div>
+    <div class="bar"></div>
+    <div id="stage">Starting...</div>
+    <div class="foot">Developed by Prabal Slathia<span id="ver"></span></div>
+  </div>
+  <script>
+    const v = new URLSearchParams(location.search).get('v');
+    if (v) document.getElementById('ver').textContent = ' · v' + v;
+    const el = document.getElementById('stage');
+    if (window.splash) {
+      window.splash.onStage((msg) => {
+        el.style.opacity = '0';
+        setTimeout(() => { el.textContent = msg; el.style.opacity = '1'; }, 130);
+      });
+    }
+  </script>
+</body>
+</html>

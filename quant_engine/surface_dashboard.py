@@ -62,11 +62,7 @@ def build_surface(vs, config: Config, n_strike: int = 41, n_dte: int = 28):
     """IV surface: real NSE per-strike IV when available, else parametric.
 
     Returns (strikes, dtes, iv_grid) where iv_grid[j, i] is IV% at
-    strike[i], dte[j]. The parametric fallback models the two stylised facts of
-    index vol:
-      * negative skew/smile across strikes (OTM puts bid, calls cheaper)
-      * term structure that backwardates in high-IV-rank (stress) regimes
-        and contangos in calm low-IV-rank regimes.
+    strike[i], dte[j].
     """
     # Prefer the live chain's real implied-vol skew/term when reachable.
     if getattr(config, "use_live", True) and getattr(config, "use_live_chain", True):
@@ -79,7 +75,17 @@ def build_surface(vs, config: Config, n_strike: int = 41, n_dte: int = 28):
                     return live
         except Exception:
             pass
+    return parametric_surface(vs, n_strike, n_dte)
 
+
+def parametric_surface(vs, n_strike: int = 41, n_dte: int = 28):
+    """Smooth fitted "Model" surface from the vol state (no chain needed).
+
+    Models the stylised facts of index vol:
+      * negative skew/smile across strikes (OTM puts bid, calls cheaper)
+      * term structure that backwardates in high-IV-rank (stress) regimes
+        and contangos in calm low-IV-rank regimes.
+    """
     spot = vs.spot
     atm = vs.vix if vs.vix == vs.vix else 14.0          # ATM IV anchor (%)
     ivr = (vs.iv_rank if vs.iv_rank == vs.iv_rank else 50.0) / 100.0
@@ -90,17 +96,25 @@ def build_surface(vs, config: Config, n_strike: int = 41, n_dte: int = 28):
     m = strikes / spot - 1.0
 
     # Skew: puts (m<0) richer. Slope steepens with IV-rank; smile curvature.
+    # Moneyness is tanh-saturated (~±7%) so the far wings flatten toward an
+    # asymptote like a real index smile instead of accelerating quadratically.
     skew_slope = 55.0 + 35.0 * ivr        # vol points per unit moneyness
     smile_curv = 180.0 + 120.0 * ivr
-    skew = -skew_slope * m + smile_curv * m * m          # per-strike add to ATM
+    mw = 0.07
+    ms = mw * np.tanh(m / mw)
+    skew = -skew_slope * ms + smile_curv * ms * ms       # per-strike add to ATM
 
     # Term: high IV-rank -> backwardation (short-dated richer), low -> contango.
+    # Smile/skew DECAY with maturity (a stylised fact: front expiries carry the
+    # steepest smiles, back expiries are smoother — roughly a power law in T),
+    # so each expiry gets its own curvature instead of a scaled copy.
     ref = 7.0
     term_beta = 0.22 * (ivr - 0.5)        # +ve => short > long
     grid = np.empty((n_dte, n_strike))
     for j, t in enumerate(dtes):
         term_mult = 1.0 + term_beta * (np.sqrt(ref / t) - 1.0)
-        grid[j, :] = np.clip((atm + skew) * term_mult, 5.0, None)
+        smile_decay = float(np.clip((ref / max(t, 1.0)) ** 0.35, 0.55, 1.6))
+        grid[j, :] = np.clip(atm * term_mult + skew * smile_decay, 5.0, None)
     return strikes, dtes, grid
 
 

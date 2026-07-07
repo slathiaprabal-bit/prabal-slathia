@@ -13,20 +13,24 @@ export default function App() {
   useResearchRecorder(); // continuous research-DB capture (lib/research)
 
   return (
-    <div className="grid-bg flex h-screen flex-col overflow-hidden" style={{ background: 'var(--bg0)' }}>
+    <div className="grid-bg h-screen overflow-hidden" style={{ background: 'var(--bg0)' }}>
       <BackgroundFX />
-      <TopBar />
       <ErrorBanner />
 
-      {/* Body: sidebar + active workspace */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <Sidebar />
-        <main className="min-h-0 flex-1 overflow-hidden">
-          {snap ? <WorkspaceRouter /> : <Loading />}
-        </main>
-      </div>
+      {/* Floating workspace: outer margins let the whole app breathe above the
+          background, with the top rail, nav rail and content as floating glass. */}
+      <div className="app-shell relative z-10 flex h-full min-h-0 flex-col">
+        <TopBar />
 
-      <MarketNews />
+        <div className="flex min-h-0 flex-1 gap-[inherit]">
+          <Sidebar />
+          <main className="min-h-0 flex-1 overflow-hidden">
+            {snap ? <WorkspaceRouter /> : <Loading />}
+          </main>
+        </div>
+
+        <MarketNews />
+      </div>
     </div>
   );
 }

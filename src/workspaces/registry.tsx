@@ -1,11 +1,13 @@
 import type { ComponentType } from 'react';
 import {
-  Layers, Cpu, ShieldAlert, Activity, Globe, PieChart, BookOpen, FlaskConical, Settings,
+  Layers, Cpu, ShieldAlert, Activity, Globe, PieChart, BookOpen, FlaskConical, Settings, CalendarClock, SlidersHorizontal,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { WorkspaceId } from '../types';
 
 import { VolatilityTerminal } from './VolatilityTerminal';
+import { MarketEvents } from './MarketEvents';
+import { AdjustmentStrategist } from './AdjustmentStrategist';
 import { StrategyLab } from './StrategyLab';
 import { PositionRisk } from './PositionRisk';
 import { MarketBreadth } from './MarketBreadth';
@@ -31,7 +33,7 @@ export const WORKSPACES: WorkspaceDef[] = [
     label: 'Volatility Terminal',
     subtitle: '3-D surface · smile · term structure · regime',
     icon: Layers,
-    accent: '#f4b740',
+    accent: '#a78bfa',
     Component: VolatilityTerminal,
   },
   {
@@ -41,6 +43,14 @@ export const WORKSPACES: WorkspaceDef[] = [
     icon: Cpu,
     accent: '#27d17c',
     Component: StrategyLab,
+  },
+  {
+    id: 'adjust',
+    label: 'Adjustment Strategist',
+    subtitle: 'objective-driven adjustment optimizer · scenario sim',
+    icon: SlidersHorizontal,
+    accent: '#27d17c',
+    Component: AdjustmentStrategist,
   },
   {
     id: 'risk',
@@ -55,7 +65,7 @@ export const WORKSPACES: WorkspaceDef[] = [
     label: 'Market Breadth',
     subtitle: 'Positioning · PCR · support / resistance · GEX',
     icon: Activity,
-    accent: '#f4b740',
+    accent: '#a78bfa',
     Component: MarketBreadth,
   },
   {
@@ -65,6 +75,14 @@ export const WORKSPACES: WorkspaceDef[] = [
     icon: Globe,
     accent: '#c79bff',
     Component: MacroIntelligence,
+  },
+  {
+    id: 'events',
+    label: 'Market Events',
+    subtitle: 'event risk · IV impact · trading-week score',
+    icon: CalendarClock,
+    accent: '#f04668',
+    Component: MarketEvents,
   },
   {
     id: 'portfolio',
@@ -79,7 +97,7 @@ export const WORKSPACES: WorkspaceDef[] = [
     label: 'Trade Journal',
     subtitle: 'Live decision · structure · entry / exit rules',
     icon: BookOpen,
-    accent: '#f4b740',
+    accent: '#a78bfa',
     Component: TradeJournal,
   },
   {

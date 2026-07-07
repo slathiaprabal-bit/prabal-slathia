@@ -47,6 +47,61 @@ export interface Curve {
   iv: number[];
 }
 
+// Real day-over-day IV memory (backend api/volhistory.py). Fields are null
+// until real prior-day observations exist — never fabricated.
+export interface VolHistory {
+  yesterdayDate: string | null;
+  days: number;
+  smileYesterday: number[] | null;   // aligned to today's smile strikes
+  smileAvg5: number[] | null;
+  surfaceYesterday: number[][] | null; // aligned to today's surface grid
+  tenors: {
+    labels: string[];                // 1W 2W 1M 2M 3M 6M
+    dte: number[];
+    today: (number | null)[];        // null = beyond observed DTE range
+    yesterday: (number | null)[] | null;
+    avg5: (number | null)[] | null;
+  };
+}
+
+// Multi-asset vol context (api/volcontext.py) — one generic market object per
+// registered index. The terminal UI consumes this and never hardcodes an index.
+export interface VolContext {
+  instrument: string;
+  label: string;
+  exchange?: string;
+  available: boolean;
+  live?: boolean;
+  degraded: string[];
+  lotSize?: number;
+  strikeStep?: number;
+  weeklyExpiryDay?: string | null;
+  monthlyExpiry?: string | null;
+  nextExpiry?: string | null;
+  dte?: number;
+  spot?: number;
+  vixChg?: number;
+  vol?: Partial<VolBlock> & { vix: number };
+  surface?: Surface;
+  surfaceModel?: Surface | null;
+  smile?: Curve;
+  term?: Curve;
+  volHistory?: VolHistory | null;
+}
+
+// One intraday replay sample (api/volreplay.py) — enough to re-render the
+// smile, term structure, surface and vol engine at that recorded moment.
+export interface ReplaySample {
+  ts: string;
+  t: string;    // HH:MM IST
+  spot: number;
+  vixChg: number;
+  vol: { vix: number; ivRank: number; ivPctile: number; hv20: number; vrp: number; emExpiry: number; pInside1: number };
+  smile: Curve;
+  term: Curve;
+  surface: Surface;
+}
+
 export interface Greeks {
   delta: number;
   gamma: number;
@@ -166,8 +221,10 @@ export interface Snapshot {
   regime: Regime;
   vol: VolBlock;
   surface: Surface;
+  surfaceModel?: Surface | null;   // smooth parametric fit, served alongside the live surface
   smile: Curve;
   term: Curve;
+  volHistory?: VolHistory | null;
   greeks: Greeks;
   chain: ChainRow[];
   chainSynthetic: boolean;
@@ -208,6 +265,8 @@ export interface StrategyRanking {
 // 8 institutional workspaces — the sidebar navigation contract.
 export type WorkspaceId =
   | 'volatility'
+  | 'events'
+  | 'adjust'
   | 'strategy'
   | 'risk'
   | 'breadth'

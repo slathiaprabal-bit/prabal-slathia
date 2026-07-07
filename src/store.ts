@@ -12,10 +12,12 @@ interface TerminalState {
   conn: ConnState;
   error: BackendError | null;
   workspace: WorkspaceId;
+  sidebarCollapsed: boolean;
   setSnap: (s: Snapshot) => void;
   setConn: (c: ConnState) => void;
   setError: (e: BackendError | null) => void;
   setWorkspace: (w: WorkspaceId) => void;
+  toggleSidebar: () => void;
 }
 
 export const useTerminal = create<TerminalState>((set, get) => ({
@@ -26,10 +28,20 @@ export const useTerminal = create<TerminalState>((set, get) => ({
   // Navigation lives in the store so switching workspaces never tears down
   // the single live WebSocket connection (data + feed are global).
   workspace: 'volatility',
+  // Sidebar collapse is view-only chrome (no effect on data/feed); persisted so
+  // a trader's preferred rail width survives reloads.
+  sidebarCollapsed:
+    (typeof localStorage !== 'undefined' && localStorage.getItem('volara.sidebar') === 'collapsed'),
   setSnap: (s) => set({ snap: s, prev: get().snap }),
   setConn: (c) => set({ conn: c }),
   setError: (e) => set({ error: e }),
   setWorkspace: (w) => set({ workspace: w }),
+  toggleSidebar: () =>
+    set((st) => {
+      const next = !st.sidebarCollapsed;
+      try { localStorage.setItem('volara.sidebar', next ? 'collapsed' : 'expanded'); } catch { /* ignore */ }
+      return { sidebarCollapsed: next };
+    }),
 }));
 
 // Strategy: populate with demo data IMMEDIATELY so the terminal is never blank,
@@ -70,8 +82,12 @@ export function startFeed() {
         setConn('live');
         setSnap(data as Snapshot);
       } else if (data && (data.error || data.traceback)) {
-        // Instrumented backend error — show the traceback in the UI.
-        gotLive = false;
+        // Instrumented backend error — surface it, but KEEP the last good live
+        // snapshot on screen. Do NOT clear gotLive: once a live frame has
+        // arrived we never resume the mock cold-start feed, so the snapshot
+        // source stays single (the live socket). This prevents live frames from
+        // interleaving with independent mock frames mid-stream, which is what
+        // made the top bar briefly show mixed-frame / wrong values.
         setError(data as BackendError);
         setConn('error');
       }
