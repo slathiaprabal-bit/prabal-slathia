@@ -1,11 +1,14 @@
 node_modules/
 build/
 dist/
+dist-desktop/
 coverage/
 .DS_Store
 *.log
 .env*
 !.env.example
+# desktop build config (no secrets — localhost engine URLs only)
+!.env.desktop
 
 # Python
 __pycache__/
