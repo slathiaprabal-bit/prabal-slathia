@@ -1,0 +1,95 @@
+# PS Terminal desktop build — produces the Windows installer + portable exe.
+#
+# Runs on: manual dispatch, or a version tag push (v3.0.0, v3.1.0, …).
+# Artifacts: "PS Terminal Setup <version>.exe" (NSIS wizard) and
+#            "PS Terminal <version> Portable.exe", uploaded to the run; tag
+#            builds also attach them to a draft GitHub Release.
+#
+# The PyInstaller freeze MUST run on Windows to emit a Windows engine —
+# that is exactly what this runner provides.
+
+name: desktop
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: desktop/engine-requirements.txt
+
+      # If a version tag triggered the build, it wins over package.json —
+      # single-source version automation (v3.1.0 → installer 3.1.0).
+      - name: Sync version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
+
+      - name: Install engine toolchain
+        run: pip install -r desktop/engine-requirements.txt
+
+      - name: Freeze market engine (PyInstaller)
+        run: pyinstaller --clean --noconfirm desktop/engine.spec
+
+      - name: Smoke-test frozen engine
+        shell: bash
+        run: |
+          ./dist/volara-engine/volara-engine.exe &
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8000/api/health | grep -q true; then
+              echo "engine healthy"; break
+            fi
+            [ "$i" = 60 ] && { echo "engine never became healthy"; exit 1; }
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8000/api/snapshot -o /dev/null && echo "snapshot OK"
+          taskkill //F //IM volara-engine.exe
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Build renderer (desktop mode)
+        run: npm run build:desktop
+
+      - name: Package (NSIS installer + portable)
+        run: npx electron-builder --win --publish never
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: PS-Terminal-Setup
+          path: release/PS Terminal Setup *.exe
+          if-no-files-found: error
+
+      - name: Upload portable
+        uses: actions/upload-artifact@v4
+        with:
+          name: PS-Terminal-Portable
+          path: release/PS Terminal * Portable.exe
+          if-no-files-found: error
+
+      - name: Attach to draft release (tag builds)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            release/PS Terminal Setup *.exe
+            release/PS Terminal * Portable.exe
